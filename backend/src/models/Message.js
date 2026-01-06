@@ -36,21 +36,11 @@ const messageSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
-    status: [
-      {
-        userId: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: "User",
-          required: true,
-        },
-        status: {
-          type: String,
-          enum: ["sent", "delivered", "read"],
-          default: "sent",
-          required: true,
-        },
-      },
-    ],
+    status: {
+      type: String,
+      enum: ["sent", "delivered", "seen"],
+      default: "sent",
+    },
   },
   { timestamps: true }
 );

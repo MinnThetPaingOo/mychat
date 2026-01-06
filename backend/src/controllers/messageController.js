@@ -44,10 +44,6 @@ const messageController = {
         text,
         image: imageUrl,
         video: videoUrl,
-        status: [
-          { userId: senderId, status: "sent" },
-          { userId: receiverId, status: "sent" },
-        ],
       });
       await newMessage.save();
 
