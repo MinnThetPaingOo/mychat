@@ -53,7 +53,6 @@ const AuthController = {
         httpOnly: true,
         maxAge: 3 * 24 * 60 * 60 * 1000, //3 days
         secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
       });
 
       // Exclude password from response
@@ -101,7 +100,6 @@ const AuthController = {
         httpOnly: true,
         maxAge: 3 * 24 * 60 * 60 * 1000, // 3 days
         secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
       });
 
       // Exclude password from response

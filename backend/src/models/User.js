@@ -19,6 +19,20 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    isonline: {
+      type: Boolean,
+      default: false,
+    },
+    lastSeen: {
+      type: Date,
+      default: null,
+    },
+    contacts: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
   },
   { timestamps: true }
 );

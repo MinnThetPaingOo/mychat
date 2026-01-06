@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAuthStore } from "../store/useAuthStore";
-import BorderAnimatedContainer from "../components/borderAnimatedContainer.jsx";
+import BorderAnimatedContainer from "../components/BorderAnimatedContainer.jsx";
 import {
   MessageCircleIcon,
   LockIcon,
@@ -16,13 +16,14 @@ function SignUpPage() {
     email: "",
     password: "",
   });
-  const { signup, isSigningUp } = useAuthStore();
+  const { signup, isSigningUp, setAuthUser } = useAuthStore();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     const success = await signup(formData);
     if (success) {
+      setAuthUser(null);
       navigate("/login");
     }
   };

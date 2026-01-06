@@ -12,69 +12,51 @@ import {
   Navigate,
 } from "react-router-dom";
 import { useAuthStore } from "./store/useAuthStore.js";
-import PageLoader from "./components/pageLoader.jsx";
 
-// Protected route wrapper
-function ProtectedRoute({ children }) {
-  const { authUser, isCheckingAuth } = useAuthStore();
-  console.log(authUser);
-
-  if (isCheckingAuth) return <PageLoader />;
-  return authUser ? children : <Navigate to="/login" replace />;
+function AppRouter() {
+  const { authUser } = useAuthStore();
+  const localAuthUser = localStorage.getItem("authUser");
+  console.log("Auth User in Router:", authUser);
+  console.log("Local Storage Auth User in Router:", localAuthUser);
+  const router = createBrowserRouter([
+    {
+      path: "/",
+      element: <App />,
+      children: [
+        {
+          path: "/",
+          element: authUser ? <Home /> : <Navigate to="/login" replace />,
+        },
+        {
+          path: "/signup",
+          element: <SignupPage />,
+        },
+        {
+          path: "/login",
+          element: <LoginPage />,
+        },
+        {
+          path: "/chat",
+          element: authUser ? <ChatPage /> : <Navigate to="/login" replace />,
+        },
+        // Catch-all route for unknown paths
+        {
+          path: "*",
+          element: authUser ? (
+            <Navigate to="/" replace />
+          ) : (
+            <Navigate to="/login" replace />
+          ),
+        },
+      ],
+    },
+  ]);
+  // Use a key that changes when authUser changes to force RouterProvider to re-initialize
+  return <RouterProvider router={router} key={authUser ? "auth" : "guest"} />;
 }
-
-// Public route wrapper (redirect to home if logged in)
-function PublicRoute({ children }) {
-  const { authUser, isCheckingAuth } = useAuthStore();
-
-  if (isCheckingAuth) return <PageLoader />;
-  return authUser ? <Navigate to="/" replace /> : children;
-}
-
-const router = createBrowserRouter([
-  {
-    path: "/",
-    element: <App />,
-    children: [
-      {
-        path: "/",
-        element: (
-          <ProtectedRoute>
-            <Home />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: "/signup",
-        element: (
-          <PublicRoute>
-            <SignupPage />
-          </PublicRoute>
-        ),
-      },
-
-      {
-        path: "/login",
-        element: (
-          <PublicRoute>
-            <LoginPage />
-          </PublicRoute>
-        ),
-      },
-      {
-        path: "/chat",
-        element: (
-          <ProtectedRoute>
-            <ChatPage />
-          </ProtectedRoute>
-        ),
-      },
-    ],
-  },
-]);
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
-    <RouterProvider router={router} />
+    <AppRouter />
   </StrictMode>
 );

@@ -8,10 +8,12 @@ import {
   LockIcon,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import { use } from "react";
 
 function LoginPage() {
   const [formData, setFormData] = useState({ email: "", password: "" });
   const { login, isLoggingIn } = useAuthStore();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
