@@ -3,6 +3,7 @@ import http from "http";
 import express from "express";
 import { socketAuthMiddleware } from "../middlewares/socket.auth.middleware.js";
 import dotenv from "dotenv";
+import Message from "../models/Message.js";
 dotenv.config();
 
 const app = express();
@@ -43,6 +44,97 @@ io.on("connection", (socket) => {
 
   // io.emit() is used to send events to all connected clients
   io.emit("getOnlineUsers", Object.keys(userSocketMap));
+
+  // When user comes online, send pending messages and mark as delivered
+  socket.on("user_online", async () => {
+    try {
+      // Find messages sent to this user that are still in "sent" status
+      const pendingMessages = await Message.find({
+        receiverId: userId,
+        status: "sent",
+      }).sort({ createdAt: 1 });
+
+      console.log(
+        `Found ${pendingMessages.length} pending messages for user ${userId}`
+      );
+
+      // Send each pending message and update status
+      for (const message of pendingMessages) {
+        // Emit the message to the now-online user
+        socket.emit("newMessage", message);
+
+        // Update status to delivered
+        await Message.findByIdAndUpdate(message._id, { status: "delivered" });
+
+        // Notify the sender if they're online
+        const senderSocketId = userSocketMap[message.senderId];
+        if (senderSocketId) {
+          io.to(senderSocketId).emit("message_delivered", {
+            messageId: message._id,
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error sending pending messages:", error);
+    }
+  });
+
+  // Listen for message_delivered from Client B
+  socket.on(
+    "message_delivered",
+    async ({ messageId, senderId, receiverId }) => {
+      console.log("Received message_delivered:", {
+        messageId,
+        senderId,
+        receiverId,
+      }); // Debug log
+
+      try {
+        // 1. Update MongoDB status
+        const updatedMessage = await Message.findByIdAndUpdate(
+          messageId,
+          { status: "delivered" },
+          { new: true }
+        );
+        console.log("Updated message status:", updatedMessage); // Debug log
+
+        // 2. Notify Client A (sender)
+        const senderSocketId = userSocketMap[senderId];
+        if (senderSocketId) {
+          console.log("Emitting to sender:", senderSocketId, messageId); // Debug log
+          io.to(senderSocketId).emit("message_delivered", { messageId });
+        } else {
+          console.log("Sender not online:", senderId); // Debug log
+        }
+      } catch (error) {
+        console.error("Error updating message status:", error);
+      }
+    }
+  );
+
+  // Listen for messages_seen from client
+  socket.on("messages_seen", async ({ messageIds, senderId, viewerId }) => {
+    console.log("Messages seen:", { messageIds, senderId, viewerId });
+
+    try {
+      // Update all message statuses to "seen"
+      await Message.updateMany(
+        { _id: { $in: messageIds } },
+        { status: "seen" }
+      );
+
+      console.log(`Updated ${messageIds.length} messages to seen status`);
+
+      // Notify the sender if they're online
+      const senderSocketId = userSocketMap[senderId];
+      if (senderSocketId) {
+        io.to(senderSocketId).emit("messages_seen", { messageIds });
+        console.log("Notified sender about messages seen:", senderId);
+      }
+    } catch (error) {
+      console.error("Error updating messages to seen:", error);
+    }
+  });
 
   // with socket.on we listen for events from clients
   socket.on("disconnect", () => {

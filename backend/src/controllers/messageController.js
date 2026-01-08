@@ -44,6 +44,7 @@ const messageController = {
         text,
         image: imageUrl,
         video: videoUrl,
+        status: "sent", // Initial status
       });
       await newMessage.save();
 
@@ -51,9 +52,14 @@ const messageController = {
       conversation.lastMessage = newMessage._id;
       await conversation.save();
 
+      // Check if receiver is online and send message
       const receiverSocketId = getReceiverSocketId(receiverId);
       if (receiverSocketId) {
+        // Receiver is online, send message immediately
         io.to(receiverSocketId).emit("newMessage", newMessage);
+        console.log(`Message sent to online user: ${receiverId}`);
+      } else {
+        console.log(`Receiver ${receiverId} is offline. Message will be delivered when they come online.`);
       }
 
       return res.status(200).json({ message: newMessage });

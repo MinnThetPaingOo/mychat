@@ -30,6 +30,19 @@ function ChatContainer() {
     unsubscribeFromMessages,
   ]);
 
+  // Mark messages as seen when messages change (for real-time updates)
+  useEffect(() => {
+    const { markMessagesAsSeen } = useChatStore.getState();
+    if (messages.length > 0) {
+      // Small delay to ensure messages are rendered
+      const timeoutId = setTimeout(() => {
+        markMessagesAsSeen(selectedUser._id);
+      }, 100);
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [messages, selectedUser._id]);
+
   useEffect(() => {
     if (messageEndRef.current) {
       messageEndRef.current.scrollIntoView({ behavior: "smooth" });
@@ -70,11 +83,15 @@ function ChatContainer() {
                     />
                   )}
                   {msg.text && <p className="mt-2">{msg.text}</p>}
-                  <p className="text-xs mt-1 opacity-75 flex items-center gap-1">
+                  <p className="text-xs mt-1 opacity-60 flex items-center gap-1">
                     {new Date(msg.createdAt).toLocaleTimeString(undefined, {
                       hour: "2-digit",
                       minute: "2-digit",
                     })}
+                    {/* Only show status for messages sent by current user (right side) */}
+                    {msg.senderId === authUser._id && (
+                      <span className="ml-1">• {msg.status}</span>
+                    )}
                   </p>
                 </div>
               </div>

@@ -65,11 +65,47 @@ export const useChatStore = create((set, get) => ({
       const res = await axiosInstance.get(`/message/conversations/${userId}`);
       console.log("Messages fetched:", res.data.messages);
       set({ messages: res.data.messages });
+
+      // Mark messages as seen when opening chat
+      get().markMessagesAsSeen(userId);
     } catch (error) {
       toast.error(error.response?.data?.message || "Something went wrong");
     } finally {
       set({ isMessagesLoading: false });
     }
+  },
+
+  markMessagesAsSeen: async (senderId) => {
+    const { authUser, socket } = useAuthStore.getState();
+    const { messages } = get();
+
+    // Find messages from sender that are not seen yet
+    const unseenMessages = messages.filter(
+      (msg) =>
+        msg.senderId === senderId &&
+        msg.receiverId === authUser._id &&
+        (msg.status === "sent" || msg.status === "delivered")
+    );
+
+    if (unseenMessages.length === 0) return;
+
+    const messageIds = unseenMessages.map((msg) => msg._id);
+
+    // Emit to server to mark as seen
+    if (socket) {
+      socket.emit("messages_seen", {
+        messageIds,
+        senderId,
+        viewerId: authUser._id,
+      });
+    }
+
+    // Update local state immediately
+    set((state) => ({
+      messages: state.messages.map((msg) =>
+        messageIds.includes(msg._id) ? { ...msg, status: "seen" } : msg
+      ),
+    }));
   },
   sendMessage: async (messageData) => {
     const { selectedUser, messages } = get();
@@ -84,9 +120,11 @@ export const useChatStore = create((set, get) => ({
       text: messageData.text,
       image: messageData.image,
       createdAt: new Date().toISOString(),
-      isOptimistic: true, // flag to identify optimistic messages (optional)
+      status: "sent",
+      isOptimistic: true,
     };
-    // immidetaly update the ui by adding the message
+
+    // Immediately update the UI by adding the message
     set({ messages: [...messages, optimisticMessage] });
 
     try {
@@ -94,10 +132,18 @@ export const useChatStore = create((set, get) => ({
         `/message/send/${selectedUser._id}`,
         messageData
       );
-      set({ messages: messages.concat(res.data.message) });
+
+      // Replace optimistic message with real message
+      set((state) => ({
+        messages: state.messages.map((msg) =>
+          msg._id === tempId ? res.data.message : msg
+        ),
+      }));
     } catch (error) {
-      // remove optimistic message on failure
-      set({ messages: messages });
+      // Remove optimistic message on failure
+      set((state) => ({
+        messages: state.messages.filter((msg) => msg._id !== tempId),
+      }));
       toast.error(error.response?.data?.message || "Something went wrong");
     }
   },
@@ -117,29 +163,38 @@ export const useChatStore = create((set, get) => ({
       const currentMessages = get().messages;
       set({ messages: [...currentMessages, newMessage] });
 
+      // Emit message_delivered back to server
+      socket.emit("message_delivered", {
+        messageId: newMessage._id,
+        senderId: newMessage.senderId,
+        receiverId: newMessage.receiverId,
+      });
+
       if (isSoundEnabled) {
         const notificationSound = new Audio("/sounds/notification.mp3");
-        notificationSound.currentTime = 0; // reset to start
+        notificationSound.currentTime = 0;
         notificationSound
           .play()
           .catch((e) => console.log("Audio play failed:", e));
       }
     });
 
-    // Listen for message status updates
-    socket.on("messageStatusUpdated", ({ messageId, userId, status }) => {
+    // Listen for message_delivered event from server
+    socket.on("message_delivered", ({ messageId }) => {
+      console.log("Message delivered:", messageId);
       set((state) => ({
         messages: state.messages.map((msg) =>
-          msg._id === messageId
-            ? {
-                ...msg,
-                status: Array.isArray(msg.status)
-                  ? msg.status.map((s) =>
-                      s.userId === userId ? { ...s, status } : s
-                    )
-                  : [{ userId, status }],
-              }
-            : msg
+          msg._id === messageId ? { ...msg, status: "delivered" } : msg
+        ),
+      }));
+    });
+
+    // Listen for messages_seen event from server
+    socket.on("messages_seen", ({ messageIds }) => {
+      console.log("Messages seen:", messageIds);
+      set((state) => ({
+        messages: state.messages.map((msg) =>
+          messageIds.includes(msg._id) ? { ...msg, status: "seen" } : msg
         ),
       }));
     });
@@ -148,5 +203,15 @@ export const useChatStore = create((set, get) => ({
   unsubscribeFromMessages: () => {
     const socket = useAuthStore.getState().socket;
     socket.off("newMessage");
+    socket.off("message_delivered");
+    socket.off("messages_seen");
+  },
+
+  connectUser: () => {
+    const socket = useAuthStore.getState().socket;
+    if (socket) {
+      socket.emit("user_online");
+      console.log("User connected and marked as online");
+    }
   },
 }));
