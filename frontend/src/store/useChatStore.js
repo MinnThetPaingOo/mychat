@@ -13,22 +13,6 @@ export const useChatStore = create((set, get) => ({
   isMessagesLoading: false,
   isSoundEnabled: JSON.parse(localStorage.getItem("isSoundEnabled")) === true,
 
-  // updateMessageStatus: async ({ messageId, status }) => {
-  //   const { authUser, socket } = useAuthStore.getState();
-  //   // Emit socket event for real-time update
-  //   if (socket) {
-  //     socket.emit("updateMessageStatus", { messageId, status });
-  //   }
-  //   // Also update via API for persistence
-  //   try {
-  //     await axiosInstance.patch(`/message/status/${messageId}`, {
-  //       userId: authUser._id,
-  //       status,
-  //     });
-  //   } catch (e) {
-  //     // ignore for now
-  //   }
-  // },
   toggleSound: () => {
     localStorage.setItem("isSoundEnabled", !get().isSoundEnabled);
     set({ isSoundEnabled: !get().isSoundEnabled });
@@ -120,8 +104,6 @@ export const useChatStore = create((set, get) => ({
       receiverId: selectedUser._id,
       text: messageData.text,
       image: messageData.image,
-      createdAt: new Date().toISOString(),
-      status: onlineUsers.includes(selectedUser._id) ? "delivered" : "sent",
       isOptimistic: true,
     };
 

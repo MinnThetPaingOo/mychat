@@ -29,9 +29,13 @@ const io = new Server(server, {
 io.use(socketAuthMiddleware);
 
 // we will use this function to check if the user is online or not
-export function getReceiverSocketId(userId) {
-  return userSocketMap[userId];
-}
+export const getReceiverSocketId = (receiverId) => {
+  return userSocketMap[receiverId];
+};
+
+export const getSenderSocketId = (senderId) => {
+  return userSocketMap[senderId];
+};
 
 // In-memory store for which user has which chat open { userId: withUserId }
 const userOpenChatMap = {};

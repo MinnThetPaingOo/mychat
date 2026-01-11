@@ -45,7 +45,7 @@ function ChatContainer() {
     socket,
   ]);
 
-  //Mark messages as seen when messages change (for real-time updates)
+  // Mark messages as seen when messages change (for real-time updates)
   useEffect(() => {
     const { markMessagesAsSeen } = useChatStore.getState();
     if (messages.length > 0) {

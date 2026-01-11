@@ -1,7 +1,12 @@
 import Message from "../models/Message.js";
 import Conversation from "../models/Conversation.js";
 import claudinary from "../lib/claudinary.js";
-import { getReceiverSocketId, io, isChatOpenWith } from "../lib/socket.js";
+import {
+  getReceiverSocketId,
+  io,
+  isChatOpenWith,
+  getSenderSocketId,
+} from "../lib/socket.js";
 
 const messageController = {
   sendMessage: async (req, res) => {
@@ -42,7 +47,7 @@ const messageController = {
 
       if (receiverSocketId) {
         // Receiver is online
-        if (isChatOpenWith(receiverId, senderId)) {
+        if (isChatOpenWith(receiverId, senderId.toString())) {
           // Receiver is online AND has the chat window open
           messageStatus = "seen";
         } else {
@@ -50,6 +55,7 @@ const messageController = {
           messageStatus = "delivered";
         }
       }
+      console.log("Message status set to:", messageStatus);
 
       const newMessage = new Message({
         conversationId: conversation._id,
@@ -67,7 +73,22 @@ const messageController = {
       await conversation.save();
 
       if (receiverSocketId) {
+        // Emit to receiver
         io.to(receiverSocketId).emit("newMessage", newMessage);
+
+        // Emit status update back to sender
+        const senderSocketId = getSenderSocketId(senderId.toString());
+        if (senderSocketId) {
+          if (messageStatus === "seen") {
+            io.to(senderSocketId).emit("messages_seen", {
+              conversationId: conversation._id.toString(),
+            });
+          } else if (messageStatus === "delivered") {
+            io.to(senderSocketId).emit("message_delivered", {
+              conversationId: conversation._id.toString(),
+            });
+          }
+        }
       }
       return res.status(200).json({ message: newMessage });
     } catch (error) {
