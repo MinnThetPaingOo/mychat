@@ -15,31 +15,41 @@ function ChatContainer() {
     subscribeToMessages,
     unsubscribeFromMessages,
   } = useChatStore();
-  const { authUser } = useAuthStore();
+
+  // Get socket from authStore
+  const { authUser, socket } = useAuthStore();
   const messageEndRef = useRef(null);
 
   useEffect(() => {
     getMessagesByUserId(selectedUser._id);
     subscribeToMessages();
+
+    // 1. Emit chat_open when this component mounts or specific user is selected
+    if (socket) {
+      socket.emit("chat_open", { withUserId: selectedUser._id });
+    }
+
     // clean up
-    return () => unsubscribeFromMessages();
+    return () => {
+      unsubscribeFromMessages();
+      // 2. Emit chat_close when component unmounts or user changes
+      if (socket) {
+        socket.emit("chat_close");
+      }
+    };
   }, [
-    selectedUser,
+    selectedUser._id, // use ._id to be specific
     getMessagesByUserId,
     subscribeToMessages,
     unsubscribeFromMessages,
+    socket,
   ]);
 
-  // Mark messages as seen when messages change (for real-time updates)
+  //Mark messages as seen when messages change (for real-time updates)
   useEffect(() => {
     const { markMessagesAsSeen } = useChatStore.getState();
     if (messages.length > 0) {
-      // Small delay to ensure messages are rendered
-      const timeoutId = setTimeout(() => {
-        markMessagesAsSeen(selectedUser._id);
-      }, 100);
-
-      return () => clearTimeout(timeoutId);
+      markMessagesAsSeen(selectedUser._id);
     }
   }, [messages, selectedUser._id]);
 

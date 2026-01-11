@@ -104,7 +104,6 @@ export const useAuthStore = create((set, get) => ({
 
     // When socket connects, emit user_online
     socket.on("connect", () => {
-      console.log("Socket connected, marking user as online");
       socket.emit("user_online");
     });
 

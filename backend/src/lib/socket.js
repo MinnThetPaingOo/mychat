@@ -33,6 +33,19 @@ export function getReceiverSocketId(userId) {
   return userSocketMap[userId];
 }
 
+// In-memory store for which user has which chat open { userId: withUserId }
+const userOpenChatMap = {};
+
+/**
+ * Checks if a user has a specific chat window open.
+ * @param {string} userId - The user to check.
+ * @param {string} withUserId - The other user in the chat.
+ * @returns {boolean} - True if the chat is open.
+ */
+export function isChatOpenWith(userId, withUserId) {
+  return userOpenChatMap[userId] === withUserId;
+}
+
 // this is for storig online users
 const userSocketMap = {}; // {userId:socketId}
 
@@ -45,6 +58,15 @@ io.on("connection", (socket) => {
   // io.emit() is used to send events to all connected clients
   io.emit("getOnlineUsers", Object.keys(userSocketMap));
 
+  // track when a user opens or closes a chat (in-memory only)
+  socket.on("chat_open", ({ withUserId }) => {
+    userOpenChatMap[userId] = withUserId;
+  });
+
+  socket.on("chat_close", () => {
+    delete userOpenChatMap[userId];
+  });
+
   // When user comes online, send pending messages and mark as delivered
   socket.on("user_online", async () => {
     try {
@@ -54,18 +76,10 @@ io.on("connection", (socket) => {
         status: "sent",
       }).sort({ createdAt: 1 });
 
-      console.log(
-        `Found ${pendingMessages.length} pending messages for user ${userId}`
-      );
-
-      // Send each pending message and update status
+      // Send each pending message, update status and notify sender
       for (const message of pendingMessages) {
-        // Emit the message to the now-online user
         socket.emit("newMessage", message);
-
-        // Update status to delivered
         await Message.findByIdAndUpdate(message._id, { status: "delivered" });
-
         // Notify the sender if they're online
         const senderSocketId = userSocketMap[message.senderId];
         if (senderSocketId) {
@@ -79,57 +93,18 @@ io.on("connection", (socket) => {
     }
   });
 
-  // Listen for message_delivered from Client B
-  socket.on(
-    "message_delivered",
-    async ({ messageId, senderId, receiverId }) => {
-      console.log("Received message_delivered:", {
-        messageId,
-        senderId,
-        receiverId,
-      }); // Debug log
-
-      try {
-        // 1. Update MongoDB status
-        const updatedMessage = await Message.findByIdAndUpdate(
-          messageId,
-          { status: "delivered" },
-          { new: true }
-        );
-        console.log("Updated message status:", updatedMessage); // Debug log
-
-        // 2. Notify Client A (sender)
-        const senderSocketId = userSocketMap[senderId];
-        if (senderSocketId) {
-          console.log("Emitting to sender:", senderSocketId, messageId); // Debug log
-          io.to(senderSocketId).emit("message_delivered", { messageId });
-        } else {
-          console.log("Sender not online:", senderId); // Debug log
-        }
-      } catch (error) {
-        console.error("Error updating message status:", error);
-      }
-    }
-  );
-
   // Listen for messages_seen from client
   socket.on("messages_seen", async ({ messageIds, senderId, viewerId }) => {
-    console.log("Messages seen:", { messageIds, senderId, viewerId });
-
     try {
       // Update all message statuses to "seen"
       await Message.updateMany(
         { _id: { $in: messageIds } },
         { status: "seen" }
       );
-
-      console.log(`Updated ${messageIds.length} messages to seen status`);
-
       // Notify the sender if they're online
       const senderSocketId = userSocketMap[senderId];
       if (senderSocketId) {
         io.to(senderSocketId).emit("messages_seen", { messageIds });
-        console.log("Notified sender about messages seen:", senderId);
       }
     } catch (error) {
       console.error("Error updating messages to seen:", error);
@@ -140,6 +115,7 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     console.log("A user disconnected", socket.user.fullName);
     delete userSocketMap[userId];
+    delete userOpenChatMap[userId]; // Clean up open chat status on disconnect
     io.emit("getOnlineUsers", Object.keys(userSocketMap));
   });
 });

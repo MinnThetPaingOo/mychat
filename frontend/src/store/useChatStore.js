@@ -13,22 +13,22 @@ export const useChatStore = create((set, get) => ({
   isMessagesLoading: false,
   isSoundEnabled: JSON.parse(localStorage.getItem("isSoundEnabled")) === true,
 
-  updateMessageStatus: async ({ messageId, status }) => {
-    const { authUser, socket } = useAuthStore.getState();
-    // Emit socket event for real-time update
-    if (socket) {
-      socket.emit("updateMessageStatus", { messageId, status });
-    }
-    // Also update via API for persistence
-    try {
-      await axiosInstance.patch(`/message/status/${messageId}`, {
-        userId: authUser._id,
-        status,
-      });
-    } catch (e) {
-      // ignore for now
-    }
-  },
+  // updateMessageStatus: async ({ messageId, status }) => {
+  //   const { authUser, socket } = useAuthStore.getState();
+  //   // Emit socket event for real-time update
+  //   if (socket) {
+  //     socket.emit("updateMessageStatus", { messageId, status });
+  //   }
+  //   // Also update via API for persistence
+  //   try {
+  //     await axiosInstance.patch(`/message/status/${messageId}`, {
+  //       userId: authUser._id,
+  //       status,
+  //     });
+  //   } catch (e) {
+  //     // ignore for now
+  //   }
+  // },
   toggleSound: () => {
     localStorage.setItem("isSoundEnabled", !get().isSoundEnabled);
     set({ isSoundEnabled: !get().isSoundEnabled });
@@ -110,6 +110,7 @@ export const useChatStore = create((set, get) => ({
   sendMessage: async (messageData) => {
     const { selectedUser, messages } = get();
     const { authUser } = useAuthStore.getState();
+    const { onlineUsers } = useAuthStore.getState();
 
     const tempId = `temp-${Date.now()}`;
 
@@ -120,7 +121,7 @@ export const useChatStore = create((set, get) => ({
       text: messageData.text,
       image: messageData.image,
       createdAt: new Date().toISOString(),
-      status: "sent",
+      status: onlineUsers.includes(selectedUser._id) ? "delivered" : "sent",
       isOptimistic: true,
     };
 
@@ -163,13 +164,6 @@ export const useChatStore = create((set, get) => ({
       const currentMessages = get().messages;
       set({ messages: [...currentMessages, newMessage] });
 
-      // Emit message_delivered back to server
-      socket.emit("message_delivered", {
-        messageId: newMessage._id,
-        senderId: newMessage.senderId,
-        receiverId: newMessage.receiverId,
-      });
-
       if (isSoundEnabled) {
         const notificationSound = new Audio("/sounds/notification.mp3");
         notificationSound.currentTime = 0;
@@ -207,11 +201,11 @@ export const useChatStore = create((set, get) => ({
     socket.off("messages_seen");
   },
 
-  connectUser: () => {
-    const socket = useAuthStore.getState().socket;
-    if (socket) {
-      socket.emit("user_online");
-      console.log("User connected and marked as online");
-    }
-  },
+  // connectUser: () => {
+  //   const socket = useAuthStore.getState().socket;
+  //   if (socket) {
+  //     socket.emit("user_online");
+  //     console.log("User connected and marked as online");
+  //   }
+  // },
 }));

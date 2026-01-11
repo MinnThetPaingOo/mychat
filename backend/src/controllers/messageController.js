@@ -1,7 +1,7 @@
 import Message from "../models/Message.js";
 import Conversation from "../models/Conversation.js";
 import claudinary from "../lib/claudinary.js";
-import { getReceiverSocketId, io } from "../lib/socket.js";
+import { getReceiverSocketId, io, isChatOpenWith } from "../lib/socket.js";
 
 const messageController = {
   sendMessage: async (req, res) => {
@@ -37,6 +37,20 @@ const messageController = {
         await conversation.save();
       }
 
+      const receiverSocketId = getReceiverSocketId(receiverId);
+      let messageStatus = "sent"; // Default status
+
+      if (receiverSocketId) {
+        // Receiver is online
+        if (isChatOpenWith(receiverId, senderId)) {
+          // Receiver is online AND has the chat window open
+          messageStatus = "seen";
+        } else {
+          // Receiver is online but chat window is not open
+          messageStatus = "delivered";
+        }
+      }
+
       const newMessage = new Message({
         conversationId: conversation._id,
         senderId,
@@ -44,7 +58,7 @@ const messageController = {
         text,
         image: imageUrl,
         video: videoUrl,
-        status: "sent", // Initial status
+        status: messageStatus,
       });
       await newMessage.save();
 
@@ -52,16 +66,9 @@ const messageController = {
       conversation.lastMessage = newMessage._id;
       await conversation.save();
 
-      // Check if receiver is online and send message
-      const receiverSocketId = getReceiverSocketId(receiverId);
       if (receiverSocketId) {
-        // Receiver is online, send message immediately
         io.to(receiverSocketId).emit("newMessage", newMessage);
-        console.log(`Message sent to online user: ${receiverId}`);
-      } else {
-        console.log(`Receiver ${receiverId} is offline. Message will be delivered when they come online.`);
       }
-
       return res.status(200).json({ message: newMessage });
     } catch (error) {
       return res.status(400).json({ error: error.message });
