@@ -4,23 +4,54 @@ import toast from "react-hot-toast";
 import { useAuthStore } from "./useAuthStore";
 
 export const useChatStore = create((set, get) => ({
+  // ========================================
+  // STATE
+  // ========================================
   allContacts: [],
   chats: [],
   messages: [],
   activeTab: "chats",
   selectedUser: null,
+  usersOpenMyChat: [],
   isUsersLoading: false,
   isMessagesLoading: false,
   isSoundEnabled: JSON.parse(localStorage.getItem("isSoundEnabled")) === true,
 
+  // ========================================
+  // UI STATE SETTERS
+  // Simple methods to update UI state
+  // ========================================
+
+  /**
+   * Sets the active tab (chats/contacts)
+   * Used when switching between chats list and contacts list views
+   */
+  setActiveTab: (tab) => set({ activeTab: tab }),
+
+  /**
+   * Sets the currently selected user for chat
+   * Triggers when user clicks on a contact/chat to open conversation
+   */
+  setSelectedUser: (selectedUser) => set({ selectedUser }),
+
+  /**
+   * Toggles notification sound on/off
+   * Persists preference to localStorage
+   */
   toggleSound: () => {
     localStorage.setItem("isSoundEnabled", !get().isSoundEnabled);
     set({ isSoundEnabled: !get().isSoundEnabled });
   },
 
-  setActiveTab: (tab) => set({ activeTab: tab }),
-  setSelectedUser: (selectedUser) => set({ selectedUser }),
+  // ========================================
+  // DATA FETCHING (API Calls)
+  // Methods that fetch data from backend
+  // ========================================
 
+  /**
+   * Fetches all available contacts from backend
+   * Used in "Contacts" tab to show all users you can chat with
+   */
   getAllContacts: async () => {
     set({ isUsersLoading: true });
     try {
@@ -32,6 +63,11 @@ export const useChatStore = create((set, get) => ({
       set({ isUsersLoading: false });
     }
   },
+
+  /**
+   * Fetches users you've chatted with before
+   * Used in "Chats" tab to show conversation history
+   */
   getMyChatPartners: async () => {
     set({ isUsersLoading: true });
     try {
@@ -43,6 +79,12 @@ export const useChatStore = create((set, get) => ({
       set({ isUsersLoading: false });
     }
   },
+
+  /**
+   * Fetches all messages between you and a specific user
+   * Called when opening a chat conversation
+   * Automatically marks messages as seen after loading
+   */
   getMessagesByUserId: async (userId) => {
     set({ isMessagesLoading: true });
     try {
@@ -59,6 +101,65 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
+  // ========================================
+  // MESSAGE OPERATIONS
+  // Methods for sending messages and updating status
+  // ========================================
+
+  /**
+   * Sends a new message to the selected user
+   * Uses optimistic UI update (shows message immediately before server confirms)
+   * Replaces temp message with real message from server on success
+   * Removes temp message if sending fails
+   */
+  sendMessage: async (messageData) => {
+    const { selectedUser, messages, usersOpenMyChat } = get();
+    const { authUser, onlineUsers } = useAuthStore.getState();
+
+    const tempId = `temp-${Date.now()}`;
+
+    console.log("Status:", status);
+    const optimisticMessage = {
+      _id: tempId,
+      senderId: authUser._id,
+      receiverId: selectedUser._id,
+      text: messageData.text,
+      image: messageData.image,
+      createdAt: new Date().toISOString(),
+      status: "sending",
+      isOptimistic: true,
+    };
+
+    // Immediately update the UI by adding the message
+    set({ messages: [...messages, optimisticMessage] });
+
+    try {
+      const res = await axiosInstance.post(
+        `/message/send/${selectedUser._id}`,
+        messageData
+      );
+
+      // Replace optimistic message with real message
+      set((state) => ({
+        messages: state.messages.map((msg) =>
+          msg._id === tempId ? res.data.message : msg
+        ),
+      }));
+    } catch (error) {
+      // Remove optimistic message on failure
+      set((state) => ({
+        messages: state.messages.filter((msg) => msg._id !== tempId),
+      }));
+      toast.error(error.response?.data?.message || "Something went wrong");
+    }
+  },
+
+  /**
+   * Marks messages from a sender as "seen"
+   * Called automatically when opening a chat
+   * Emits socket event to notify sender and updates local state
+   * Only marks messages with status "sent" or "delivered"
+   */
   markMessagesAsSeen: async (senderId) => {
     const { authUser, socket } = useAuthStore.getState();
     const { messages } = get();
@@ -91,46 +192,20 @@ export const useChatStore = create((set, get) => ({
       ),
     }));
   },
-  sendMessage: async (messageData) => {
-    const { selectedUser, messages } = get();
-    const { authUser } = useAuthStore.getState();
-    const { onlineUsers } = useAuthStore.getState();
 
-    const tempId = `temp-${Date.now()}`;
+  // ========================================
+  // REAL-TIME SOCKET LISTENERS
+  // Methods for subscribing/unsubscribing to live updates
+  // ========================================
 
-    const optimisticMessage = {
-      _id: tempId,
-      senderId: authUser._id,
-      receiverId: selectedUser._id,
-      text: messageData.text,
-      image: messageData.image,
-      isOptimistic: true,
-    };
-
-    // Immediately update the UI by adding the message
-    set({ messages: [...messages, optimisticMessage] });
-
-    try {
-      const res = await axiosInstance.post(
-        `/message/send/${selectedUser._id}`,
-        messageData
-      );
-
-      // Replace optimistic message with real message
-      set((state) => ({
-        messages: state.messages.map((msg) =>
-          msg._id === tempId ? res.data.message : msg
-        ),
-      }));
-    } catch (error) {
-      // Remove optimistic message on failure
-      set((state) => ({
-        messages: state.messages.filter((msg) => msg._id !== tempId),
-      }));
-      toast.error(error.response?.data?.message || "Something went wrong");
-    }
-  },
-
+  /**
+   * Sets up socket listeners for real-time updates
+   * Called when opening a chat conversation
+   * Listens for:
+   * - newMessage: Incoming messages from selected user (plays sound if enabled)
+   * - message_delivered: Updates message status when delivered to recipient
+   * - messages_seen: Updates message status when recipient views them
+   */
   subscribeToMessages: () => {
     const { selectedUser, isSoundEnabled } = get();
     if (!selectedUser) return;
@@ -176,8 +251,15 @@ export const useChatStore = create((set, get) => ({
     });
   },
 
+  /**
+   * Removes all socket listeners for messages
+   * Called when closing a chat or unmounting chat component
+   * Prevents memory leaks and duplicate event handlers
+   */
   unsubscribeFromMessages: () => {
     const socket = useAuthStore.getState().socket;
+    if (!socket) return;
+
     socket.off("newMessage");
     socket.off("message_delivered");
     socket.off("messages_seen");
