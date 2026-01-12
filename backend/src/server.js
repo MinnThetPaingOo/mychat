@@ -6,6 +6,7 @@ import authRoute from "./routes/authRoute.js";
 import userRoute from "./routes/userRoute.js";
 import messageRoute from "./routes/messageRoute.js";
 import contactRoute from "./routes/contactRoute.js";
+import reactionRoute from "./routes/reactionRoute.js";
 import { connectDB } from "./lib/db.js";
 import arjectMiddleware from "./middlewares/arjectMiddleware.js";
 import { app, server } from "./lib/socket.js";
@@ -40,7 +41,7 @@ app.use("/api/auth", authRoute);
 app.use("/api/user", userRoute);
 app.use("/api/message", messageRoute);
 app.use("/api/contact", contactRoute);
-
+app.use("/api/reaction", reactionRoute);
 server.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
   connectDB();

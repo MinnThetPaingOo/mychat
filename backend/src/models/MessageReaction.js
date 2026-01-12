@@ -12,9 +12,9 @@ const messageReactionSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
-    reaction: {
+    emoji: {
       type: String,
-      enum: ["like", "love", "laugh", "sad", "angry", "wow"],
+      enum: ["👍", "❤️", "😂", "😔", "😮", "😡"],
       required: true,
     },
   },
