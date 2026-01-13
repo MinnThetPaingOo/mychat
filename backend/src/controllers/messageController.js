@@ -146,6 +146,45 @@ const messageController = {
       return res.status(400).json({ error: error.messages });
     }
   },
+  getLastMessage: async (req, res) => {
+    try {
+      const myId = req.user._id;
+      const otherId = req.params.id;
+      const page = parseInt(req.query.page) || 1;
+      const limit = 8;
+      const skip = (page - 1) * limit;
+
+      const lastMessages = await Message.find({
+        $or: [
+          { senderId: myId, receiverId: otherId },
+          { senderId: otherId, receiverId: myId },
+        ],
+      })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit);
+
+      const totalMessages = await Message.countDocuments({
+        $or: [
+          { senderId: myId, receiverId: otherId },
+          { senderId: otherId, receiverId: myId },
+        ],
+      });
+
+      if (!lastMessages || lastMessages.length === 0) {
+        return res.status(404).json({ error: "Messages not found" });
+      }
+
+      return res.status(200).json({
+        lastMessages,
+        hasMore: skip + lastMessages.length < totalMessages,
+        totalMessages,
+        currentPage: page,
+      });
+    } catch (error) {
+      return res.status(400).json({ error: error.message });
+    }
+  },
 };
 
 export default messageController;
