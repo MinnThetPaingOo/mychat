@@ -23,7 +23,6 @@ const messageSchema = new mongoose.Schema(
       trim: true,
       maxlength: 2000,
     },
-    // Replace image and video with attachments array
     attachments: [
       {
         url: { type: String, required: true },
@@ -34,6 +33,17 @@ const messageSchema = new mongoose.Schema(
         },
         name: String,
         size: Number,
+      },
+    ],
+    reactions: [
+      {
+        type: {
+          type: String,
+          enum: ["like", "love", "haha", "wow", "sad", "angry"],
+          required: true,
+        },
+        count: { type: Number, default: 0 },
+        users: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
       },
     ],
     isEdited: {

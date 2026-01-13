@@ -1,15 +1,10 @@
 import express from "express";
 import protectRoute from "../middlewares/protectRoute.js";
-import {
-  addOrUpdateReaction,
-  removeReaction,
-  getReactionsForMessage,
-} from "../controllers/reactionController.js";
+import reactionController from "../controllers/reactionController.js";
 
 const router = express.Router();
 
-router.post("/", protectRoute, addOrUpdateReaction);
-router.delete("/", protectRoute, removeReaction);
-router.get("/:messageId", protectRoute, getReactionsForMessage);
+router.post("/:messageId", protectRoute, reactionController.addReaction);
+router.get("/:messageId", protectRoute, reactionController.getReactions);
 
 export default router;
