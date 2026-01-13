@@ -102,7 +102,7 @@ function MessageInput() {
 
       <form
         onSubmit={handleSendMessage}
-        className="max-w-3xl mx-auto flex space-x-4"
+        className="max-w-3xl mx-auto flex space-x-4 text-white"
       >
         <input
           type="text"
