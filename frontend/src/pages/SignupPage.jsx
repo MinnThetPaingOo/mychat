@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAuthStore } from "../store/useAuthStore";
-import BorderAnimatedContainer from "../components/BorderAnimatedContainer.jsx";
+import BorderAnimatedContainer from "../components/borderAnimatedContainer.jsx";
 import {
   MessageCircleIcon,
   LockIcon,
@@ -60,7 +60,7 @@ function SignUpPage() {
                           setFormData({ ...formData, fullName: e.target.value })
                         }
                         className="input"
-                        placeholder="John Doe"
+                        placeholder="Enter your full name"
                       />
                     </div>
                   </div>
@@ -78,7 +78,7 @@ function SignUpPage() {
                           setFormData({ ...formData, email: e.target.value })
                         }
                         className="input"
-                        placeholder="johndoe@gmail.com"
+                        placeholder="Enter your email"
                       />
                     </div>
                   </div>
@@ -87,7 +87,7 @@ function SignUpPage() {
                   <div>
                     <label className="auth-input-label">Password</label>
                     <div className="relative">
-                      <MailIcon className="auth-input-icon" />
+                      <LockIcon className="auth-input-icon" />
 
                       <input
                         type="password"
