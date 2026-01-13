@@ -55,7 +55,7 @@ export const useChatStore = create((set, get) => ({
   getAllContacts: async () => {
     set({ isUsersLoading: true });
     try {
-      const res = await axiosInstance.get("/contact/getAllContacts");
+      const res = await axiosInstance.get("/contact/suggestedContacts");
       set({ allContacts: res.data.contacts });
     } catch (error) {
       toast.error(error.response.data.message);

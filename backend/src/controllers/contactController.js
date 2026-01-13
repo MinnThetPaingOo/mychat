@@ -43,6 +43,41 @@ const contactController = {
       return res.status(400).json({ error: error.message });
     }
   },
+  suggestedContacts: async (req, res) => {
+    try {
+      const userId = req.user._id;
+
+      // Get users the logged-in user has already chatted with
+      const messages = await Message.find({
+        $or: [{ senderId: userId }, { receiverId: userId }],
+      });
+
+      const chattedUserIds = new Set();
+      messages.forEach((msg) => {
+        if (msg.senderId.toString() !== userId.toString()) {
+          chattedUserIds.add(msg.senderId.toString());
+        }
+        if (msg.receiverId.toString() !== userId.toString()) {
+          chattedUserIds.add(msg.receiverId.toString());
+        }
+      });
+
+      // Fetch the last 5 users excluding logged-in user and already chatted users
+      const suggestedContacts = await User.find({
+        _id: {
+          $ne: userId,
+          $nin: Array.from(chattedUserIds),
+        },
+      })
+        .select("-password")
+        .sort({ createdAt: -1 })
+        .limit(5);
+
+      return res.status(200).json({ contacts: suggestedContacts });
+    } catch (error) {
+      return res.status(400).json({ error: error.message });
+    }
+  },
 };
 
 export default contactController;

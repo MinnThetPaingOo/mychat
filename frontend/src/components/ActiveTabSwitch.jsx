@@ -24,7 +24,7 @@ function ActiveTabSwitch() {
             : "text-slate-400"
         }`}
       >
-        Contacts
+        Suggests
       </button>
     </div>
   );

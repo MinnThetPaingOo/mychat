@@ -6,5 +6,10 @@ const router = express.Router();
 
 router.get("/getAllContacts", protectRoute, contactController.getAllContacts);
 router.get("/chattedContacts", protectRoute, contactController.chattedContacts);
+router.get(
+  "/suggestedContacts",
+  protectRoute,
+  contactController.suggestedContacts
+);
 
 export default router;
