@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useAuthStore } from "../store/useAuthStore";
 import { useChatStore } from "../store/useChatStore";
 import ChatHeader from "./ChatHeader";
@@ -6,8 +6,7 @@ import NoChatHistoryPlaceholder from "./NoChatHistoryPlaceholder";
 import MessageInput from "./MessageInput";
 import MessagesLoadingSkeleton from "./MessagesLoadingSkeleton";
 import { useReactionStore } from "../store/useReactionStore";
-
-// const REACTION_EMOJIS = ["👍", "❤️", "😂", "😔", "😮", "😡"];
+import { FileIcon, Download } from "lucide-react";
 
 function ChatContainer() {
   const {
@@ -22,10 +21,6 @@ function ChatContainer() {
   const { authUser, socket } = useAuthStore();
   const messageEndRef = useRef(null);
 
-  // UI States
-  // const [activeReactionId, setActiveReactionId] = useState(null);
-  // // Temporary local state to show reactions immediately in UI
-  // const [localReactions, setLocalReactions] = useState({});
   const {
     REACTION_EMOJIS,
     activeReactionId,
@@ -64,6 +59,28 @@ function ChatContainer() {
       messageEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
+
+  // Helper function to handle file download
+  const handleFileDownload = async (url, fileName) => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = fileName || "download";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error("Download failed:", error);
+      // Fallback: open in new tab
+      window.open(url, "_blank");
+    }
+  };
 
   return (
     <div
@@ -111,20 +128,74 @@ function ChatContainer() {
                     </div>
                   )}
 
-                  {msg.image && (
-                    <img
-                      src={msg.image}
-                      alt="Shared"
-                      className="rounded-lg h-48 object-cover mb-2"
-                    />
+                  {/* Render attachments */}
+                  {msg.attachments && msg.attachments.length > 0 && (
+                    <div className="mb-2 space-y-2">
+                      {msg.attachments.map((att, idx) => (
+                        <div key={idx}>
+                          {att.type === "image" && (
+                            <div className="relative group">
+                              <img
+                                src={att.url}
+                                alt={att.name}
+                                className="rounded-lg h-48 object-cover cursor-pointer"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  window.open(att.url, "_blank");
+                                }}
+                              />
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleFileDownload(
+                                    att.url,
+                                    att.name || "image.jpg"
+                                  );
+                                }}
+                                className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                title="Download image"
+                              >
+                                <Download className="w-4 h-4" />
+                              </button>
+                            </div>
+                          )}
+                          {att.type === "video" && (
+                            <video
+                              src={att.url}
+                              controls
+                              className="rounded-lg h-48 object-cover"
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          )}
+                          {att.type === "file" && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleFileDownload(att.url, att.name);
+                              }}
+                              className="flex items-center gap-3 p-3 bg-slate-700/50 rounded-lg hover:bg-slate-700 transition-colors w-full text-left group"
+                            >
+                              <div className="w-10 h-10 rounded-lg bg-slate-600 flex items-center justify-center flex-shrink-0">
+                                <FileIcon className="w-5 h-5" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <span className="text-sm block truncate font-medium">
+                                  {att.name}
+                                </span>
+                                {att.size && (
+                                  <span className="text-xs text-slate-400">
+                                    {(att.size / 1024).toFixed(1)} KB
+                                  </span>
+                                )}
+                              </div>
+                              <Download className="w-5 h-5 flex-shrink-0 text-cyan-400 group-hover:scale-110 transition-transform" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   )}
-                  {msg.video && (
-                    <video
-                      src={msg.video}
-                      controls
-                      className="rounded-lg h-48 object-cover mb-2"
-                    />
-                  )}
+
                   {msg.text && <p className="leading-relaxed">{msg.text}</p>}
 
                   <p className="text-[10px] mt-1 opacity-60 flex items-center gap-1 uppercase font-bold">

@@ -113,18 +113,17 @@ export const useChatStore = create((set, get) => ({
    * Removes temp message if sending fails
    */
   sendMessage: async (messageData) => {
-    const { selectedUser, messages, usersOpenMyChat } = get();
-    const { authUser, onlineUsers } = useAuthStore.getState();
+    const { selectedUser, messages } = get();
+    const { authUser } = useAuthStore.getState();
 
     const tempId = `temp-${Date.now()}`;
 
-    console.log("Status:", status);
     const optimisticMessage = {
       _id: tempId,
       senderId: authUser._id,
       receiverId: selectedUser._id,
       text: messageData.text,
-      image: messageData.image,
+      attachments: messageData.attachments || [], // Changed from image/video
       createdAt: new Date().toISOString(),
       status: "sending",
       isOptimistic: true,

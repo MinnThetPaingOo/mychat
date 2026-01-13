@@ -19,15 +19,23 @@ const messageSchema = new mongoose.Schema(
     },
     text: {
       type: String,
+      default: "",
       trim: true,
       maxlength: 2000,
     },
-    image: {
-      type: String,
-    },
-    video: {
-      type: String,
-    },
+    // Replace image and video with attachments array
+    attachments: [
+      {
+        url: { type: String, required: true },
+        type: {
+          type: String,
+          enum: ["image", "video", "file"],
+          required: true,
+        },
+        name: String,
+        size: Number,
+      },
+    ],
     isEdited: {
       type: Boolean,
       default: false,
@@ -41,6 +49,12 @@ const messageSchema = new mongoose.Schema(
       enum: ["sent", "delivered", "seen"],
       default: "sent",
     },
+    readBy: [
+      {
+        userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        readAt: Date,
+      },
+    ],
   },
   { timestamps: true }
 );

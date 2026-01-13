@@ -13,19 +13,54 @@ const messageController = {
     try {
       const senderId = req.user._id;
       const receiverId = req.params.id;
-      const { text, image, video } = req.body;
-      let imageUrl, videoUrl;
-      if (image) {
-        //upload imagebase64 to cloudinary
-        const uploadResponse = await claudinary.uploader.upload(image);
-        imageUrl = uploadResponse.secure_url;
-      }
-      if (video) {
-        //upload video base64 to cloudinary
-        const uploadResponse = await claudinary.uploader.upload(video, {
-          resource_type: "video",
-        });
-        videoUrl = uploadResponse.secure_url;
+      const { text, attachments } = req.body;
+
+      let uploadedAttachments = [];
+
+      // Process attachments array
+      if (attachments && Array.isArray(attachments)) {
+        for (const attachment of attachments) {
+          const { data, type, name, size } = attachment;
+
+          if (type === "image") {
+            const uploadResponse = await claudinary.uploader.upload(data, {
+              resource_type: "image",
+              folder: "chat_attachments/images",
+            });
+            uploadedAttachments.push({
+              url: uploadResponse.secure_url,
+              type: "image",
+              name: name || "image",
+              size: size || 0,
+            });
+          } else if (type === "video") {
+            const uploadResponse = await claudinary.uploader.upload(data, {
+              resource_type: "video",
+              folder: "chat_attachments/videos",
+            });
+            uploadedAttachments.push({
+              url: uploadResponse.secure_url,
+              type: "video",
+              name: name || "video",
+              size: size || 0,
+            });
+          } else if (type === "file") {
+            // For files, upload as raw resource with proper options
+            const uploadResponse = await claudinary.uploader.upload(data, {
+              resource_type: "raw",
+              folder: "chat_attachments/files",
+              use_filename: true,
+              unique_filename: true,
+              type: "upload",
+            });
+            uploadedAttachments.push({
+              url: uploadResponse.secure_url,
+              type: "file",
+              name: name || uploadResponse.original_filename || "file",
+              size: size || uploadResponse.bytes || 0,
+            });
+          }
+        }
       }
 
       // Find or create conversation
@@ -43,15 +78,12 @@ const messageController = {
       }
 
       const receiverSocketId = getReceiverSocketId(receiverId);
-      let messageStatus = "sent"; // Default status
+      let messageStatus = "sent";
 
       if (receiverSocketId) {
-        // Receiver is online
         if (isChatOpenWith(receiverId, senderId.toString())) {
-          // Receiver is online AND has the chat window open
           messageStatus = "seen";
         } else {
-          // Receiver is online but chat window is not open
           messageStatus = "delivered";
         }
       }
@@ -62,21 +94,17 @@ const messageController = {
         senderId,
         receiverId,
         text,
-        image: imageUrl,
-        video: videoUrl,
+        attachments: uploadedAttachments,
         status: messageStatus,
       });
       await newMessage.save();
 
-      // Update lastMessage in conversation
       conversation.lastMessage = newMessage._id;
       await conversation.save();
 
       if (receiverSocketId) {
-        // Emit to receiver
         io.to(receiverSocketId).emit("newMessage", newMessage);
 
-        // Emit status update back to sender
         const senderSocketId = getSenderSocketId(senderId.toString());
         if (senderSocketId) {
           if (messageStatus === "seen") {
@@ -92,6 +120,7 @@ const messageController = {
       }
       return res.status(200).json({ message: newMessage });
     } catch (error) {
+      console.error("Error sending message:", error);
       return res.status(400).json({ error: error.message });
     }
   },
