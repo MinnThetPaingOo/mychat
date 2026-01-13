@@ -23,7 +23,6 @@ function SignUpPage() {
     e.preventDefault();
     const success = await signup(formData);
     if (success) {
-      setAuthUser(null);
       navigate("/login");
     }
   };

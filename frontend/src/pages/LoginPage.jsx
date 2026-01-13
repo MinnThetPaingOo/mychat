@@ -19,7 +19,7 @@ function LoginPage() {
     e.preventDefault();
     const success = await login(formData);
     if (success) {
-      navigate("/chat");
+      navigate("/");
     }
   };
 

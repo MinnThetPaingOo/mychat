@@ -5,7 +5,6 @@ import App from "./App.jsx";
 import SignupPage from "./pages/SignupPage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import Home from "./pages/ChatPage.jsx";
-import ChatPage from "./pages/ChatPage.jsx";
 import {
   createBrowserRouter,
   RouterProvider,
@@ -34,10 +33,6 @@ function AppRouter() {
         {
           path: "/login",
           element: <LoginPage />,
-        },
-        {
-          path: "/chat",
-          element: authUser ? <ChatPage /> : <Navigate to="/login" replace />,
         },
         // Catch-all route for unknown paths
         {
