@@ -28,9 +28,7 @@ function ChatsList() {
             {/* TODO: FIX THIS ONLINE STATUS AND MAKE IT WORK WITH SOCKET */}
             <div
               className={`avatar ${
-                onlineUsers.includes(chat._id)
-                  ? "avatar-online"
-                  : "avatar-offline"
+                onlineUsers.includes(chat._id) ? "avatar-online" : ""
               }`}
             >
               <div className="size-12 rounded-full">

@@ -25,9 +25,7 @@ function ContactList() {
             {/* TODO: MAKE IT WORK WITH SOCKET */}
             <div
               className={`avatar ${
-                onlineUsers.includes(contact._id)
-                  ? "avatar-online"
-                  : "avatar-offline"
+                onlineUsers.includes(contact._id) ? "avatar-online" : ""
               }`}
             >
               <div className="size-12 rounded-full">
