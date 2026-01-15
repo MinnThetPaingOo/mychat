@@ -52,7 +52,8 @@ const AuthController = {
       res.cookie("jwt", token, {
         httpOnly: true,
         maxAge: 3 * 24 * 60 * 60 * 1000, //3 days
-        secure: process.env.NODE_ENV === "production" ? "none" : "lax",
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       });
 
       // Exclude password from response
@@ -99,7 +100,8 @@ const AuthController = {
       res.cookie("jwt", token, {
         httpOnly: true,
         maxAge: 3 * 24 * 60 * 60 * 1000, // 3 days
-        secure: process.env.NODE_ENV === "production" ? "none" : "lax",
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       });
 
       // Exclude password from response
@@ -111,7 +113,12 @@ const AuthController = {
   },
   logout: (req, res) => {
     try {
-      res.cookie("jwt", "", { maxAge: 0 });
+      res.cookie("jwt", "", {
+        maxAge: 0,
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      });
       res.status(200).json({ message: "Logged out successfully" });
     } catch (error) {
       console.log("Error in logout controller", error.message);
