@@ -52,7 +52,7 @@ const AuthController = {
       res.cookie("jwt", token, {
         httpOnly: true,
         maxAge: 3 * 24 * 60 * 60 * 1000, //3 days
-        secure: process.env.NODE_ENV === "production",
+        secure: process.env.NODE_ENV === "production" ? "none" : "lax",
       });
 
       // Exclude password from response
@@ -99,7 +99,7 @@ const AuthController = {
       res.cookie("jwt", token, {
         httpOnly: true,
         maxAge: 3 * 24 * 60 * 60 * 1000, // 3 days
-        secure: process.env.NODE_ENV === "production",
+        secure: process.env.NODE_ENV === "production" ? "none" : "lax",
       });
 
       // Exclude password from response
