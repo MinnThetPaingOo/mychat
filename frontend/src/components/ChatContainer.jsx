@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuthStore } from "../store/useAuthStore";
 import { useChatStore } from "../store/useChatStore";
 import ChatHeader from "./ChatHeader";
@@ -21,14 +21,21 @@ function ChatContainer() {
   const {
     selectedUser,
     getMessagesByUserId,
+    loadMoreMessages,
     messages,
     isMessagesLoading,
+    isLoadingMore,
+    hasMore,
     subscribeToMessages,
     unsubscribeFromMessages,
   } = useChatStore();
 
   const { authUser, socket } = useAuthStore();
   const messageEndRef = useRef(null);
+  const messageContainerRef = useRef(null);
+  const [prevScrollHeight, setPrevScrollHeight] = useState(0);
+  const [shouldScrollToBottom, setShouldScrollToBottom] = useState(true);
+  const [hasCheckedConversation, setHasCheckedConversation] = useState(false);
 
   const {
     REACTION_EMOJIS,
@@ -42,39 +49,67 @@ function ChatContainer() {
   } = useReactionStore();
 
   useEffect(() => {
-    getMessagesByUserId(selectedUser._id);
-    subscribeToMessages();
-    subscribeToReactions();
+    const initChat = async () => {
+      setHasCheckedConversation(false);
+      await getMessagesByUserId(selectedUser._id);
+      setHasCheckedConversation(true);
+      subscribeToMessages();
+      subscribeToReactions();
 
-    if (socket) {
-      socket.emit("chat_open", { withUserId: selectedUser._id });
-    }
+      if (socket) {
+        socket.emit("chat_open", { withUserId: selectedUser._id });
+      }
+    };
+
+    initChat();
 
     return () => {
       unsubscribeFromMessages();
       unsubscribeFromReactions();
       if (socket) socket.emit("chat_close");
     };
-  }, [
-    selectedUser._id,
-    getMessagesByUserId,
-    subscribeToMessages,
-    unsubscribeFromMessages,
-    subscribeToReactions,
-    unsubscribeFromReactions,
-    socket,
-  ]);
+  }, [selectedUser._id]);
 
   useEffect(() => {
     const { markMessagesAsSeen } = useChatStore.getState();
     if (messages.length > 0) markMessagesAsSeen(selectedUser._id);
   }, [messages, selectedUser._id]);
 
+  // Scroll to bottom on initial load or new message
   useEffect(() => {
-    if (messageEndRef.current) {
+    if (shouldScrollToBottom && messageEndRef.current && !isLoadingMore) {
       messageEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages]);
+  }, [messages.length, shouldScrollToBottom, isLoadingMore]);
+
+  // Maintain scroll position after loading more messages
+  useEffect(() => {
+    if (isLoadingMore && messageContainerRef.current && prevScrollHeight > 0) {
+      const newScrollHeight = messageContainerRef.current.scrollHeight;
+      messageContainerRef.current.scrollTop =
+        newScrollHeight - prevScrollHeight;
+      setPrevScrollHeight(0);
+    }
+  }, [isLoadingMore, prevScrollHeight]);
+
+  useEffect(() => {
+    if (selectedUser?._id) {
+      getMessagesByUserId(selectedUser._id);
+    }
+
+    return () => {
+      unsubscribeFromMessages();
+    };
+  }, [selectedUser?._id, getMessagesByUserId, unsubscribeFromMessages]);
+
+  const handleScroll = (e) => {
+    const { scrollTop } = e.target;
+    const { hasMore, isLoadingMore } = useChatStore.getState();
+
+    if (scrollTop === 0 && hasMore && !isLoadingMore) {
+      loadMoreMessages(selectedUser._id);
+    }
+  };
 
   const handleFileDownload = async (url, fileName) => {
     try {
@@ -103,9 +138,27 @@ function ChatContainer() {
     >
       <ChatHeader />
 
-      <div className="flex-1 px-6 overflow-y-auto py-8">
-        {messages?.length > 0 && !isMessagesLoading ? (
+      <div
+        ref={messageContainerRef}
+        onScroll={handleScroll}
+        className="flex-1 px-6 overflow-y-auto py-8"
+      >
+        {messages?.length > 0 ? (
           <div className="max-w-3xl mx-auto space-y-8">
+            {/* Loading indicator at top */}
+            {isLoadingMore && (
+              <div className="flex justify-center py-4">
+                <div className="loading loading-spinner loading-md text-cyan-500"></div>
+              </div>
+            )}
+
+            {/* No more messages indicator */}
+            {!hasMore && messages.length > 8 && (
+              <div className="text-center text-sm text-slate-500 py-2">
+                No more messages
+              </div>
+            )}
+
             {messages.map((msg) => {
               const messageReactions =
                 localReactions[msg._id] || msg.reactions || [];
@@ -259,7 +312,7 @@ function ChatContainer() {
             })}
             <div ref={messageEndRef} />
           </div>
-        ) : isMessagesLoading ? (
+        ) : isMessagesLoading || !hasCheckedConversation ? (
           <MessagesLoadingSkeleton />
         ) : (
           <NoChatHistoryPlaceholder name={selectedUser.fullName} />

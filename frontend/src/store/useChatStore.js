@@ -15,6 +15,9 @@ export const useChatStore = create((set, get) => ({
   usersOpenMyChat: [],
   isUsersLoading: false,
   isMessagesLoading: false,
+  isLoadingMore: false,
+  currentPage: 1,
+  hasMore: true,
   isSoundEnabled: JSON.parse(localStorage.getItem("isSoundEnabled")) === true,
 
   // ========================================
@@ -32,7 +35,14 @@ export const useChatStore = create((set, get) => ({
    * Sets the currently selected user for chat
    * Triggers when user clicks on a contact/chat to open conversation
    */
-  setSelectedUser: (selectedUser) => set({ selectedUser }),
+  setSelectedUser: (selectedUser) => {
+    set({
+      selectedUser,
+      messages: [],
+      currentPage: 1,
+      hasMore: true,
+    });
+  },
 
   /**
    * Toggles notification sound on/off
@@ -81,23 +91,66 @@ export const useChatStore = create((set, get) => ({
   },
 
   /**
-   * Fetches all messages between you and a specific user
+   * Fetches last 8 messages between you and a specific user (paginated)
    * Called when opening a chat conversation
    * Automatically marks messages as seen after loading
    */
   getMessagesByUserId: async (userId) => {
-    set({ isMessagesLoading: true });
+    set({ isMessagesLoading: true, currentPage: 1, hasMore: true });
     try {
-      const res = await axiosInstance.get(`/message/conversations/${userId}`);
-      console.log("Messages fetched:", res.data.messages);
-      set({ messages: res.data.messages });
+      const res = await axiosInstance.get(
+        `/message/lastConversationsWith/${userId}?page=1`
+      );
+      const messages = res.data.lastMessages.reverse();
+
+      // Only set hasMore to true if we got exactly 8 messages AND backend says there's more
+      const hasMore = messages.length === 8 && res.data.hasMore;
+
+      set({
+        messages,
+        hasMore, // Will be false if messages.length < 8 or no more messages
+        currentPage: 1,
+      });
 
       // Mark messages as seen when opening chat
-      get().markMessagesAsSeen(userId);
+      if (messages.length > 0) {
+        get().markMessagesAsSeen(userId);
+      }
     } catch (error) {
-      toast.error(error.response?.data?.message || "Something went wrong");
+      console.error(error.response?.data?.message || "Something went wrong");
     } finally {
       set({ isMessagesLoading: false });
+    }
+  },
+
+  /**
+   * Loads more (older) messages when scrolling up
+   * Prepends older messages to the existing list
+   */
+  loadMoreMessages: async (userId) => {
+    const { currentPage, hasMore, isLoadingMore, messages } = get();
+
+    // Don't load if no more messages or already loading
+    if (!hasMore || isLoadingMore) return;
+
+    set({ isLoadingMore: true });
+    try {
+      const nextPage = currentPage + 1;
+      const res = await axiosInstance.get(
+        `/message/lastConversationsWith/${userId}?page=${nextPage}`
+      );
+
+      const olderMessages = res.data.lastMessages.reverse();
+
+      set({
+        messages: [...olderMessages, ...messages], // Prepend older messages
+        hasMore: olderMessages.length === 8 && res.data.hasMore, // Stop if less than 8 messages returned
+        currentPage: nextPage,
+      });
+    } catch (error) {
+      toast.error("Failed to load more messages");
+    } finally {
+      set({ isLoadingMore: false });
     }
   },
 
