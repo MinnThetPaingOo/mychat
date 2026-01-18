@@ -49,8 +49,9 @@ export const useChatStore = create((set, get) => ({
    * Persists preference to localStorage
    */
   toggleSound: () => {
-    localStorage.setItem("isSoundEnabled", !get().isSoundEnabled);
-    set({ isSoundEnabled: !get().isSoundEnabled });
+    const newValue = !get().isSoundEnabled;
+    localStorage.setItem("isSoundEnabled", newValue);
+    set({ isSoundEnabled: newValue });
   },
 
   // ========================================
@@ -68,7 +69,7 @@ export const useChatStore = create((set, get) => ({
       const res = await axiosInstance.get("/contact/suggestedContacts");
       set({ allContacts: res.data.contacts });
     } catch (error) {
-      toast.error(error.response.data.message);
+      toast.error(error.response?.data?.message || "Failed to load contacts");
     } finally {
       set({ isUsersLoading: false });
     }
@@ -84,7 +85,7 @@ export const useChatStore = create((set, get) => ({
       const res = await axiosInstance.get("/contact/chattedContacts");
       set({ chats: res.data.chattedContacts });
     } catch (error) {
-      toast.error(error.response.data.message);
+      toast.error(error.response?.data?.message || "Failed to load chats");
     } finally {
       set({ isUsersLoading: false });
     }
@@ -102,22 +103,19 @@ export const useChatStore = create((set, get) => ({
         `/message/lastConversationsWith/${userId}?page=1`
       );
       const messages = res.data.lastMessages.reverse();
-
-      // Only set hasMore to true if we got exactly 8 messages AND backend says there's more
       const hasMore = messages.length === 8 && res.data.hasMore;
 
       set({
         messages,
-        hasMore, // Will be false if messages.length < 8 or no more messages
+        hasMore,
         currentPage: 1,
       });
 
-      // Mark messages as seen when opening chat
       if (messages.length > 0) {
         get().markMessagesAsSeen(userId);
       }
     } catch (error) {
-      console.error(error.response?.data?.message || "Something went wrong");
+      console.error(error.response?.data?.message || "Failed to load messages");
     } finally {
       set({ isMessagesLoading: false });
     }
@@ -141,10 +139,11 @@ export const useChatStore = create((set, get) => ({
       );
 
       const olderMessages = res.data.lastMessages.reverse();
+      const hasMoreMessages = olderMessages.length === 8 && res.data.hasMore;
 
       set({
-        messages: [...olderMessages, ...messages], // Prepend older messages
-        hasMore: olderMessages.length === 8 && res.data.hasMore, // Stop if less than 8 messages returned
+        messages: [...olderMessages, ...messages],
+        hasMore: hasMoreMessages,
         currentPage: nextPage,
       });
     } catch (error) {
@@ -169,20 +168,19 @@ export const useChatStore = create((set, get) => ({
     const { selectedUser, messages } = get();
     const { authUser } = useAuthStore.getState();
 
+    // Show message immediately before server confirms
     const tempId = `temp-${Date.now()}`;
-
     const optimisticMessage = {
       _id: tempId,
       senderId: authUser._id,
       receiverId: selectedUser._id,
       text: messageData.text,
-      attachments: messageData.attachments || [], // Changed from image/video
+      attachments: messageData.attachments || [],
       createdAt: new Date().toISOString(),
       status: "sending",
       isOptimistic: true,
     };
 
-    // Immediately update the UI by adding the message
     set({ messages: [...messages, optimisticMessage] });
 
     try {
@@ -191,18 +189,18 @@ export const useChatStore = create((set, get) => ({
         messageData
       );
 
-      // Replace optimistic message with real message
+      // Replace temp message with real one from server
       set((state) => ({
         messages: state.messages.map((msg) =>
           msg._id === tempId ? res.data.message : msg
         ),
       }));
     } catch (error) {
-      // Remove optimistic message on failure
+      // Remove failed message
       set((state) => ({
         messages: state.messages.filter((msg) => msg._id !== tempId),
       }));
-      toast.error(error.response?.data?.message || "Something went wrong");
+      toast.error(error.response?.data?.message || "Failed to send message");
     }
   },
 
@@ -263,12 +261,11 @@ export const useChatStore = create((set, get) => ({
     if (!selectedUser) return;
 
     const socket = useAuthStore.getState().socket;
+    if (!socket) return;
 
     // Listen for new messages
     socket.on("newMessage", (newMessage) => {
-      const isMessageSentFromSelectedUser =
-        newMessage.senderId === selectedUser._id;
-      if (!isMessageSentFromSelectedUser) return;
+      if (newMessage.senderId !== selectedUser._id) return;
 
       const currentMessages = get().messages;
       set({ messages: [...currentMessages, newMessage] });
@@ -284,7 +281,6 @@ export const useChatStore = create((set, get) => ({
 
     // Listen for message_delivered event from server
     socket.on("message_delivered", ({ messageId }) => {
-      console.log("Message delivered:", messageId);
       set((state) => ({
         messages: state.messages.map((msg) =>
           msg._id === messageId ? { ...msg, status: "delivered" } : msg
@@ -294,7 +290,6 @@ export const useChatStore = create((set, get) => ({
 
     // Listen for messages_seen event from server
     socket.on("messages_seen", ({ messageIds }) => {
-      console.log("Messages seen:", messageIds);
       set((state) => ({
         messages: state.messages.map((msg) =>
           messageIds.includes(msg._id) ? { ...msg, status: "seen" } : msg
@@ -316,12 +311,4 @@ export const useChatStore = create((set, get) => ({
     socket.off("message_delivered");
     socket.off("messages_seen");
   },
-
-  // connectUser: () => {
-  //   const socket = useAuthStore.getState().socket;
-  //   if (socket) {
-  //     socket.emit("user_online");
-  //     console.log("User connected and marked as online");
-  //   }
-  // },
 }));
