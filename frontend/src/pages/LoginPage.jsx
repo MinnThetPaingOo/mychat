@@ -23,12 +23,11 @@ function LoginPage() {
   };
 
   return (
-    <div className="w-full h-full flex items-center justify-center bg-slate-900">
-      <div className="relative w-full h-full max-w-6xl">
+      <div className="w-full h-full relative max-w-6xl">
         <BorderAnimatedContainer>
           <div className="w-full h-full flex flex-col md:flex-row">
             {/* FORM CLOUMN - LEFT SIDE */}
-            <div className="w-full h-full md:w-2/5 flex justify-center items-center md:border-r border-slate-600/30">
+            <div className="w-full h-full md:w-2/5  p-8 flex items-center justify-center md:border-r border-slate-600/30">
               <div className="w-full max-w-md">
                 {/* HEADING TEXT */}
                 <div className="text-center mb-8">
@@ -42,7 +41,7 @@ function LoginPage() {
                 </div>
 
                 {/* FORM */}
-                <form onSubmit={handleSubmit} className="space-y-6 px-3.5">
+                <form onSubmit={handleSubmit} className="space-y-6">
                   {/* EMAIL INPUT */}
                   <div>
                     <label className="auth-input-label">Email</label>
@@ -113,7 +112,7 @@ function LoginPage() {
                     Connect anytime, anywhere
                   </h3>
 
-                  <div className="flex justify-center gap-4 mt-2">
+                  <div className="flex justify-center gap-4 mt-4">
                     <span className="auth-badge">Free</span>
                     <span className="auth-badge">Easy Setup</span>
                     <span className="auth-badge">Private</span>
@@ -123,7 +122,6 @@ function LoginPage() {
             </div>
         </BorderAnimatedContainer>
       </div>
-    </div>
   );
 }
 export default LoginPage;

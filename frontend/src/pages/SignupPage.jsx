@@ -28,12 +28,11 @@ function SignUpPage() {
   };
 
   return (
-    <div className="w-full flex items-center justify-center bg-slate-900">
-      <div className="relative w-full max-w-6xl">
+      <div className=" w-full h-full relative max-w-6xl">
         <BorderAnimatedContainer>
-          <div className="w-full flex flex-col md:flex-row">
+          <div className="w-full h-full flex flex-col md:flex-row">
             {/* FORM CLOUMN - LEFT SIDE */}
-            <div className="md:w-1/2 p-8 flex items-center justify-center md:border-r border-slate-600/30">
+            <div className="w-full h-full md:w-2/5  p-8 flex items-center justify-center md:border-r border-slate-600/30">
               <div className="w-full max-w-md">
                 {/* HEADING TEXT */}
                 <div className="text-center mb-8">
@@ -123,19 +122,18 @@ function SignUpPage() {
             </div>
 
             {/* FORM ILLUSTRATION - RIGHT SIDE */}
-            <div className="hidden md:w-1/2 md:flex items-center justify-center p-6 bg-gradient-to-bl from-slate-800/20 to-transparent">
-              <div>
+            <div className="hidden md:w-3/5 md:flex md:flex-col items-center justify-center bg-gradient-to-bl from-slate-800/20 to-transparent">
                 <img
                   src="/signup.png"
                   alt="People using mobile devices"
-                  className="w-full h-auto object-contain"
+                  className="w-full object-contain md:h-8/10"
                 />
-                <div className="mt-6 text-center">
+                <div className="mt-6 text-center  h-2/10">
                   <h3 className="text-xl font-medium text-cyan-400">
                     Start Your Journey Today
                   </h3>
 
-                  <div className="mt-4 flex justify-center gap-4">
+                  <div className="flex justify-center gap-4 mt-4">
                     <span className="auth-badge">Free</span>
                     <span className="auth-badge">Easy Setup</span>
                     <span className="auth-badge">Private</span>
@@ -143,10 +141,8 @@ function SignUpPage() {
                 </div>
               </div>
             </div>
-          </div>
         </BorderAnimatedContainer>
       </div>
-    </div>
   );
 }
 export default SignUpPage;
