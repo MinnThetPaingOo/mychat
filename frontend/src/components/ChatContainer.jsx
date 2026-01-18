@@ -185,15 +185,19 @@ function ChatContainer() {
                     {/* Floating Emoji Picker */}
                     {activeReactionId === msg._id && (
                       <div
-                        className="absolute -top-14 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 shadow-xl rounded-full px-3 py-2 z-50 animate-bounce-in"
+                        className={`absolute -top-12 sm:-top-14 ${
+                          msg.senderId === authUser._id
+                            ? "right-0 mr-2 sm:mr-4"
+                            : "left-0 ml-2 sm:ml-4"
+                        } flex items-center gap-0.5 sm:gap-1 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 shadow-xl rounded-full px-2 sm:px-3 py-1.5 sm:py-2 z-50 animate-bounce-in`}
                         onClick={(e) => e.stopPropagation()}
                       >
                         {REACTION_EMOJIS.map((emoji) => (
                           <button
                             key={emoji}
                             onClick={() => handleReactionSelect(emoji, msg._id)}
-                            className={`hover:scale-150 transition-transform duration-200 px-1 text-xl ${
-                              userReaction === emoji ? "scale-125" : ""
+                            className={`hover:scale-125 sm:hover:scale-150 transition-transform duration-200 px-0.5 sm:px-1 text-base sm:text-xl ${
+                              userReaction === emoji ? "scale-110 sm:scale-125" : ""
                             }`}
                           >
                             {emoji}
@@ -324,15 +328,15 @@ function ChatContainer() {
       <style jsx>{`
         @keyframes bounce-in {
           0% {
-            transform: translate(-50%, 10px) scale(0.5);
+            transform: translateY(10px) scale(0.5);
             opacity: 0;
           }
           70% {
-            transform: translate(-50%, -5px) scale(1.1);
+            transform: translateY(-5px) scale(1.1);
             opacity: 1;
           }
           100% {
-            transform: translate(-50%, 0) scale(1);
+            transform: translateY(0) scale(1);
             opacity: 1;
           }
         }
