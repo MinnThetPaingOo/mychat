@@ -49,6 +49,7 @@ function ChatContainer() {
   const previousMessagesLength = useRef(0);
   const scrollHeightBeforeLoad = useRef(0);
   const isLoadingMoreRef = useRef(false);
+  const scrollTimeoutRef = useRef(null);
 
   const [hasCheckedConversation, setHasCheckedConversation] = useState(false);
 
@@ -83,6 +84,9 @@ function ChatContainer() {
       previousMessagesLength.current = 0;
       scrollHeightBeforeLoad.current = 0;
       isLoadingMoreRef.current = false;
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
     };
   }, [selectedUser._id]);
 
@@ -94,6 +98,22 @@ function ChatContainer() {
     }
   }, [messages, selectedUser._id]);
 
+  // Smooth scroll to bottom helper
+  const scrollToBottom = (behavior = "smooth") => {
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+
+    scrollTimeoutRef.current = setTimeout(() => {
+      messageEndRef.current?.scrollIntoView({ behavior });
+    }, 100);
+
+    // Additional scroll after media loads
+    scrollTimeoutRef.current = setTimeout(() => {
+      messageEndRef.current?.scrollIntoView({ behavior });
+    }, 500);
+  };
+
   // Handle scroll position for different scenarios
   useEffect(() => {
     if (!messageEndRef.current || !messageContainerRef.current) return;
@@ -102,11 +122,9 @@ function ChatContainer() {
 
     // Scroll to bottom on initial load
     if (isInitialLoadRef.current && messages.length > 0 && !isMessagesLoading) {
-      setTimeout(() => {
-        messageEndRef.current?.scrollIntoView({ behavior: "instant" });
-        isInitialLoadRef.current = false;
-        previousMessagesLength.current = messages.length;
-      }, 100);
+      scrollToBottom("instant");
+      isInitialLoadRef.current = false;
+      previousMessagesLength.current = messages.length;
       return;
     }
 
@@ -126,26 +144,17 @@ function ChatContainer() {
       return;
     }
 
-    // Auto-scroll when new message arrives (if user is near bottom or sent it)
+    // Scroll down when new message arrives (sent or received)
     if (
       !isInitialLoadRef.current &&
       !isLoadingMore &&
       !isLoadingMoreRef.current &&
       messages.length > previousMessagesLength.current
     ) {
-      const isNearBottom =
-        container.scrollHeight - container.scrollTop - container.clientHeight < 150;
-      const lastMessage = messages[messages.length - 1];
-
-      if (isNearBottom || lastMessage?.senderId === authUser._id) {
-        setTimeout(() => {
-          messageEndRef.current?.scrollIntoView({ behavior: "smooth" });
-        }, 50);
-      }
-
+      scrollToBottom("smooth");
       previousMessagesLength.current = messages.length;
     }
-  }, [messages, isMessagesLoading, isLoadingMore, authUser._id]);
+  }, [messages, isMessagesLoading, isLoadingMore]);
 
   // Track loading state for scroll restoration
   useEffect(() => {
@@ -193,6 +202,7 @@ function ChatContainer() {
             src={att.url}
             alt={att.name}
             className="rounded-lg h-48 object-cover cursor-pointer"
+            onLoad={() => scrollToBottom("smooth")}
             onClick={(e) => {
               e.stopPropagation();
               window.open(att.url, "_blank");
@@ -219,6 +229,7 @@ function ChatContainer() {
           src={att.url}
           controls
           className="rounded-lg h-48 object-cover"
+          onLoadedMetadata={() => scrollToBottom("smooth")}
           onClick={(e) => e.stopPropagation()}
         />
       );
