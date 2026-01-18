@@ -33,9 +33,11 @@ function ChatContainer() {
   const { authUser, socket } = useAuthStore();
   const messageEndRef = useRef(null);
   const messageContainerRef = useRef(null);
-  const [prevScrollHeight, setPrevScrollHeight] = useState(0);
-  const [shouldScrollToBottom, setShouldScrollToBottom] = useState(true);
   const [hasCheckedConversation, setHasCheckedConversation] = useState(false);
+  const isInitialLoadRef = useRef(true);
+  const previousMessagesLength = useRef(0);
+  const scrollHeightBeforeLoad = useRef(0);
+  const isLoadingMoreRef = useRef(false);
 
   const {
     REACTION_EMOJIS,
@@ -51,6 +53,10 @@ function ChatContainer() {
   useEffect(() => {
     const initChat = async () => {
       setHasCheckedConversation(false);
+      isInitialLoadRef.current = true;
+      previousMessagesLength.current = 0;
+      scrollHeightBeforeLoad.current = 0;
+      isLoadingMoreRef.current = false;
       await getMessagesByUserId(selectedUser._id);
       setHasCheckedConversation(true);
       subscribeToMessages();
@@ -67,6 +73,10 @@ function ChatContainer() {
       unsubscribeFromMessages();
       unsubscribeFromReactions();
       if (socket) socket.emit("chat_close");
+      isInitialLoadRef.current = true;
+      previousMessagesLength.current = 0;
+      scrollHeightBeforeLoad.current = 0;
+      isLoadingMoreRef.current = false;
     };
   }, [selectedUser._id]);
 
@@ -75,38 +85,73 @@ function ChatContainer() {
     if (messages.length > 0) markMessagesAsSeen(selectedUser._id);
   }, [messages, selectedUser._id]);
 
-  // Scroll to bottom on initial load or new message
+  // Handle scroll behavior
   useEffect(() => {
-    if (shouldScrollToBottom && messageEndRef.current && !isLoadingMore) {
-      messageEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [messages.length, shouldScrollToBottom, isLoadingMore]);
+    if (!messageEndRef.current || !messageContainerRef.current) return;
 
-  // Maintain scroll position after loading more messages
-  useEffect(() => {
-    if (isLoadingMore && messageContainerRef.current && prevScrollHeight > 0) {
-      const newScrollHeight = messageContainerRef.current.scrollHeight;
-      messageContainerRef.current.scrollTop =
-        newScrollHeight - prevScrollHeight;
-      setPrevScrollHeight(0);
-    }
-  }, [isLoadingMore, prevScrollHeight]);
+    const container = messageContainerRef.current;
 
-  useEffect(() => {
-    if (selectedUser?._id) {
-      getMessagesByUserId(selectedUser._id);
+    // Initial load - scroll to bottom once
+    if (isInitialLoadRef.current && messages.length > 0 && !isMessagesLoading) {
+      setTimeout(() => {
+        messageEndRef.current?.scrollIntoView({ behavior: "instant" });
+        isInitialLoadRef.current = false;
+        previousMessagesLength.current = messages.length;
+      }, 100);
+      return;
     }
 
-    return () => {
-      unsubscribeFromMessages();
-    };
-  }, [selectedUser?._id, getMessagesByUserId, unsubscribeFromMessages]);
+    // If we just finished loading more messages
+    if (isLoadingMoreRef.current && !isLoadingMore) {
+      isLoadingMoreRef.current = false;
+
+      if (scrollHeightBeforeLoad.current > 0) {
+        requestAnimationFrame(() => {
+          const newScrollHeight = container.scrollHeight;
+          const heightDifference = newScrollHeight - scrollHeightBeforeLoad.current;
+          container.scrollTop = heightDifference;
+          scrollHeightBeforeLoad.current = 0;
+        });
+      }
+      previousMessagesLength.current = messages.length;
+      return;
+    }
+
+    // New message received (not from loading more)
+    if (
+      !isInitialLoadRef.current &&
+      !isLoadingMore &&
+      !isLoadingMoreRef.current &&
+      messages.length > previousMessagesLength.current
+    ) {
+      const isNearBottom =
+        container.scrollHeight - container.scrollTop - container.clientHeight < 150;
+      const lastMessage = messages[messages.length - 1];
+
+      // Auto-scroll if user is near bottom or sent the message
+      if (isNearBottom || lastMessage?.senderId === authUser._id) {
+        setTimeout(() => {
+          messageEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        }, 50);
+      }
+
+      previousMessagesLength.current = messages.length;
+    }
+  }, [messages, isMessagesLoading, isLoadingMore, authUser._id]);
+
+  // Track when loading starts
+  useEffect(() => {
+    if (isLoadingMore && !isLoadingMoreRef.current) {
+      isLoadingMoreRef.current = true;
+    }
+  }, [isLoadingMore]);
 
   const handleScroll = (e) => {
-    const { scrollTop } = e.target;
+    const { scrollTop, scrollHeight } = e.target;
     const { hasMore, isLoadingMore } = useChatStore.getState();
 
     if (scrollTop === 0 && hasMore && !isLoadingMore) {
+      scrollHeightBeforeLoad.current = scrollHeight;
       loadMoreMessages(selectedUser._id);
     }
   };
