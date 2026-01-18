@@ -11,11 +11,11 @@ import NoConversationPlaceholder from "../components/NoConversationPlaceholder";
 function ChatPage() {
   const { activeTab, selectedUser } = useChatStore();
   return (
-    <div className="relative w-full max-w-6xl h-[800px]">
+    <div className="relative w-full max-w-6xl h-full">
       <BorderAnimatedContainer>
         {/* LEFT SIDE */}
         <div
-          className={`w-full md:w-80 bg-slate-800/50 backdrop-blur-sm flex flex-col ${
+          className={`w-full h-full md:w-1/4 bg-slate-800/50 backdrop-blur-sm flex flex-col ${
             selectedUser ? "hidden md:flex" : "flex"
           }`}
         >
@@ -29,7 +29,7 @@ function ChatPage() {
 
         {/* RIGHT SIDE */}
         <div
-          className={`flex-1 flex flex-col bg-slate-900/50 backdrop-blur-sm ${
+          className={`w-full h-full md:w-3/4 flex-1 flex justify-center gap-4 mt-2 items-center bg-slate-900/50 backdrop-blur-sm ${
             selectedUser ? "flex" : "hidden md:flex"
           }`}
         >
