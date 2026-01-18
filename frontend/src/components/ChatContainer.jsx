@@ -133,7 +133,7 @@ function ChatContainer() {
 
   return (
     <div
-      className="flex flex-col h-full relative"
+      className="flex flex-col h-full relative "
       onClick={() => setActiveReactionId(null)}
     >
       <ChatHeader />

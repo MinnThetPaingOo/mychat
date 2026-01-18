@@ -4,7 +4,8 @@ import "./index.css";
 import App from "./App.jsx";
 import SignupPage from "./pages/SignupPage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
-import Home from "./pages/ChatPage.jsx";
+import ChatPage from "./pages/ChatPage.jsx";
+
 import {
   createBrowserRouter,
   RouterProvider,
@@ -24,7 +25,7 @@ function AppRouter() {
       children: [
         {
           path: "/",
-          element: authUser ? <Home /> : <Navigate to="/login" replace />,
+          element: authUser ? <ChatPage /> : <Navigate to="/login" replace />,
         },
         {
           path: "/signup",

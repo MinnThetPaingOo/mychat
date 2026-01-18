@@ -8,7 +8,6 @@ import {
   LockIcon,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import { use } from "react";
 
 function LoginPage() {
   const [formData, setFormData] = useState({ email: "", password: "" });
@@ -24,12 +23,12 @@ function LoginPage() {
   };
 
   return (
-    <div className="w-full flex items-center justify-center p-4 bg-slate-900">
-      <div className="relative w-full max-w-6xl md:h-[800px] h-[650px]">
+    <div className="w-full h-full flex items-center justify-center bg-slate-900">
+      <div className="relative w-full h-full max-w-6xl">
         <BorderAnimatedContainer>
-          <div className="w-full flex flex-col md:flex-row">
+          <div className="w-full h-full flex flex-col md:flex-row">
             {/* FORM CLOUMN - LEFT SIDE */}
-            <div className="md:w-1/2 p-8 flex items-center justify-center md:border-r border-slate-600/30">
+            <div className="md:w-2/5 flex items-center justify-center md:border-r border-slate-600/30">
               <div className="w-full max-w-md">
                 {/* HEADING TEXT */}
                 <div className="text-center mb-8">
@@ -43,7 +42,7 @@ function LoginPage() {
                 </div>
 
                 {/* FORM */}
-                <form onSubmit={handleSubmit} className="space-y-6">
+                <form onSubmit={handleSubmit} className="space-y-6 px-3.5">
                   {/* EMAIL INPUT */}
                   <div>
                     <label className="auth-input-label">Email</label>
@@ -103,19 +102,18 @@ function LoginPage() {
             </div>
 
             {/* FORM ILLUSTRATION - RIGHT SIDE */}
-            <div className="hidden md:w-1/2 md:flex items-center justify-center p-6 bg-gradient-to-bl from-slate-800/20 to-transparent">
-              <div>
+            <div className="hidden md:w-3/5 md:flex md:flex-col items-center justify-center bg-gradient-to-bl from-slate-800/20 to-transparent">
                 <img
                   src="/login.png"
                   alt="People using mobile devices"
-                  className="w-full h-auto object-contain"
+                  className="w-full object-contain md:h-8/10"
                 />
-                <div className="mt-6 text-center">
+                <div className="mt-6 text-center h-2/10">
                   <h3 className="text-xl font-medium text-cyan-400">
                     Connect anytime, anywhere
                   </h3>
 
-                  <div className="mt-4 flex justify-center gap-4">
+                  <div className="flex justify-center gap-4 mt-2">
                     <span className="auth-badge">Free</span>
                     <span className="auth-badge">Easy Setup</span>
                     <span className="auth-badge">Private</span>
@@ -123,7 +121,6 @@ function LoginPage() {
                 </div>
               </div>
             </div>
-          </div>
         </BorderAnimatedContainer>
       </div>
     </div>
