@@ -13,46 +13,72 @@ import {
 } from "react-router-dom";
 import { useAuthStore } from "./store/useAuthStore.js";
 
-function AppRouter() {
+// Protected Route wrapper
+function ProtectedRoute({ children }) {
   const { authUser } = useAuthStore();
-  const localAuthUser = localStorage.getItem("authUser");
-  console.log("Auth User in Router:", authUser);
-  console.log("Local Storage Auth User in Router:", localAuthUser);
-  const router = createBrowserRouter([
-    {
-      path: "/",
-      element: <App />,
-      children: [
-        {
-          path: "/",
-          element: authUser ? <ChatPage /> : <Navigate to="/login" replace />,
-        },
-        {
-          path: "/signup",
-          element: <SignupPage />,
-        },
-        {
-          path: "/login",
-          element: <LoginPage />,
-        },
-        // Catch-all route for unknown paths
-        {
-          path: "*",
-          element: authUser ? (
-            <Navigate to="/" replace />
-          ) : (
-            <Navigate to="/login" replace />
-          ),
-        },
-      ],
-    },
-  ]);
-  // Use a key that changes when authUser changes to force RouterProvider to re-initialize
-  return <RouterProvider router={router} key={authUser ? "auth" : "guest"} />;
+  
+  if (!authUser) {
+    return <Navigate to="/login" replace />;
+  }
+  
+  return children;
 }
+
+// Auth Route wrapper (redirects to home if already logged in)
+function AuthRoute({ children }) {
+  const { authUser } = useAuthStore();
+  
+  if (authUser) {
+    return <Navigate to="/" replace />;
+  }
+  
+  return children;
+}
+
+// Create router outside component - routes don't change
+const router = createBrowserRouter([
+  {
+    path: "/",
+    element: <App />,
+    children: [
+      {
+        path: "/",
+        element: (
+          <ProtectedRoute>
+            <ChatPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/signup",
+        element: (
+          <AuthRoute>
+            <SignupPage />
+          </AuthRoute>
+        ),
+      },
+      {
+        path: "/login",
+        element: (
+          <AuthRoute>
+            <LoginPage />
+          </AuthRoute>
+        ),
+      },
+      {
+        path: "*",
+        element: (
+          <ProtectedRoute>
+            <Navigate to="/" replace />
+          </ProtectedRoute>
+        ),
+      },
+    ],
+  },
+]);
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
-    <AppRouter />
+    <RouterProvider router={router} />
   </StrictMode>
 );
