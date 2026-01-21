@@ -183,16 +183,8 @@ function ChatContainer() {
       !isInitialLoadRef.current &&
       messages.length > previousMessagesLength.current
     ) {
-      const lastMessage = messages[messages.length - 1];
-      const wasAtBottom =
-        container.scrollHeight - container.scrollTop - container.clientHeight <
-        100;
-
-      // Only auto-scroll if user was already near bottom OR if it's user's own message
-      if (wasAtBottom || lastMessage?.senderId === authUser._id) {
-        scrollToBottom("smooth");
-      }
-
+      // Always scroll to bottom for new messages
+      scrollToBottom("smooth");
       previousMessagesLength.current = messages.length;
     }
   }, [messages, isMessagesLoading, isLoadingMore]);
