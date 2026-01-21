@@ -50,6 +50,7 @@ function ChatContainer() {
   const scrollHeightBeforeLoad = useRef(0);
   const isLoadingMoreRef = useRef(false);
   const scrollTimeoutRef = useRef(null);
+  const hasRestoredScrollRef = useRef(false); // NEW: Track if we've restored scroll
 
   const [hasCheckedConversation, setHasCheckedConversation] = useState(false);
 
@@ -61,6 +62,7 @@ function ChatContainer() {
       previousMessagesLength.current = 0;
       scrollHeightBeforeLoad.current = 0;
       isLoadingMoreRef.current = false;
+      hasRestoredScrollRef.current = false; // Reset on new chat
 
       await getMessagesByUserId(selectedUser._id);
       setHasCheckedConversation(true);
@@ -84,6 +86,7 @@ function ChatContainer() {
       previousMessagesLength.current = 0;
       scrollHeightBeforeLoad.current = 0;
       isLoadingMoreRef.current = false;
+      hasRestoredScrollRef.current = false;
       if (scrollTimeoutRef.current) {
         clearTimeout(scrollTimeoutRef.current);
       }
@@ -128,48 +131,68 @@ function ChatContainer() {
       return;
     }
 
-    // Keep scroll position when loading older messages
-    if (isLoadingMoreRef.current && !isLoadingMore) {
-      isLoadingMoreRef.current = false;
+    // When loading more - wait for loading to finish, then restore scroll
+    if (isLoadingMoreRef.current) {
+      // Still loading, don't do anything
+      if (isLoadingMore) {
+        return;
+      }
 
-      if (scrollHeightBeforeLoad.current > 0) {
+      // Loading finished, restore scroll position ONCE
+      if (!hasRestoredScrollRef.current && scrollHeightBeforeLoad.current > 0) {
+        hasRestoredScrollRef.current = true;
+
         requestAnimationFrame(() => {
           const newScrollHeight = container.scrollHeight;
-          const heightDifference = newScrollHeight - scrollHeightBeforeLoad.current;
+          const heightDifference =
+            newScrollHeight - scrollHeightBeforeLoad.current;
           container.scrollTop = heightDifference;
-          scrollHeightBeforeLoad.current = 0;
+
+          // Reset refs after scroll restoration is complete
+          setTimeout(() => {
+            scrollHeightBeforeLoad.current = 0;
+            previousMessagesLength.current = messages.length;
+            isLoadingMoreRef.current = false;
+            hasRestoredScrollRef.current = false;
+          }, 50);
         });
       }
-      previousMessagesLength.current = messages.length;
       return;
     }
 
     // Scroll down when new message arrives (sent or received)
     if (
       !isInitialLoadRef.current &&
-      !isLoadingMore &&
-      !isLoadingMoreRef.current &&
       messages.length > previousMessagesLength.current
     ) {
-      scrollToBottom("smooth");
+      const lastMessage = messages[messages.length - 1];
+      const wasAtBottom =
+        container.scrollHeight - container.scrollTop - container.clientHeight <
+        100;
+
+      // Only auto-scroll if user was already near bottom OR if it's user's own message
+      if (wasAtBottom || lastMessage?.senderId === authUser._id) {
+        scrollToBottom("smooth");
+      }
+
       previousMessagesLength.current = messages.length;
     }
   }, [messages, isMessagesLoading, isLoadingMore]);
-
-  // Track loading state for scroll restoration
-  useEffect(() => {
-    if (isLoadingMore && !isLoadingMoreRef.current) {
-      isLoadingMoreRef.current = true;
-    }
-  }, [isLoadingMore]);
 
   const handleScroll = (e) => {
     const { scrollTop, scrollHeight } = e.target;
     const { hasMore, isLoadingMore } = useChatStore.getState();
 
     // Load more messages when scrolled to top
-    if (scrollTop === 0 && hasMore && !isLoadingMore) {
+    if (
+      scrollTop === 0 &&
+      hasMore &&
+      !isLoadingMore &&
+      !isLoadingMoreRef.current
+    ) {
       scrollHeightBeforeLoad.current = scrollHeight;
+      isLoadingMoreRef.current = true;
+      hasRestoredScrollRef.current = false; // Reset before loading
       loadMoreMessages(selectedUser._id);
     }
   };
@@ -202,7 +225,12 @@ function ChatContainer() {
             src={att.url}
             alt={att.name}
             className="rounded-lg h-48 object-cover cursor-pointer"
-            onLoad={() => scrollToBottom("smooth")}
+            onLoad={() => {
+              // Only scroll to bottom if not loading more messages
+              if (!isLoadingMoreRef.current && !isLoadingMore) {
+                scrollToBottom("smooth");
+              }
+            }}
             onClick={(e) => {
               e.stopPropagation();
               window.open(att.url, "_blank");
@@ -229,7 +257,12 @@ function ChatContainer() {
           src={att.url}
           controls
           className="rounded-lg h-48 object-cover"
-          onLoadedMetadata={() => scrollToBottom("smooth")}
+          onLoadedMetadata={() => {
+            // Only scroll to bottom if not loading more messages
+            if (!isLoadingMoreRef.current && !isLoadingMore) {
+              scrollToBottom("smooth");
+            }
+          }}
           onClick={(e) => e.stopPropagation()}
         />
       );
