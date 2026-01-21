@@ -62,9 +62,27 @@ function ChatContainer() {
       previousMessagesLength.current = 0;
       scrollHeightBeforeLoad.current = 0;
       isLoadingMoreRef.current = false;
-      hasRestoredScrollRef.current = false; // Reset on new chat
+      hasRestoredScrollRef.current = false;
 
-      await getMessagesByUserId(selectedUser._id);
+      // Only fetch messages if user has conversation history
+      // Check if user exists in chats list (has previous messages)
+      const { chats } = useChatStore.getState();
+      const hasConversation = chats.some(
+        (chat) => chat._id === selectedUser._id,
+      );
+
+      if (hasConversation) {
+        await getMessagesByUserId(selectedUser._id);
+      } else {
+        // No conversation history, set empty state
+        useChatStore.setState({
+          messages: [],
+          currentPage: 1,
+          hasMore: false,
+          isMessagesLoading: false,
+        });
+      }
+
       setHasCheckedConversation(true);
 
       subscribeToMessages();
@@ -184,15 +202,17 @@ function ChatContainer() {
     const { hasMore, isLoadingMore } = useChatStore.getState();
 
     // Load more messages when scrolled to top
+    // Only if there's actually conversation history
     if (
       scrollTop === 0 &&
       hasMore &&
       !isLoadingMore &&
-      !isLoadingMoreRef.current
+      !isLoadingMoreRef.current &&
+      messages.length > 0 // NEW: Only load more if there are messages
     ) {
       scrollHeightBeforeLoad.current = scrollHeight;
       isLoadingMoreRef.current = true;
-      hasRestoredScrollRef.current = false; // Reset before loading
+      hasRestoredScrollRef.current = false;
       loadMoreMessages(selectedUser._id);
     }
   };
@@ -423,7 +443,7 @@ function ChatContainer() {
 
       <MessageInput />
 
-      <style jsx>{`
+      <style>{`
         @keyframes bounce-in {
           0% {
             transform: translateY(10px) scale(0.5);
