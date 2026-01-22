@@ -4,7 +4,6 @@ const router = express.Router();
 import handleErrorMessage from "../middlewares/handleErrorMessage.js";
 import authController from "../controllers/authController.js";
 import ProtectRoute from "../middlewares/protectRoute.js";
-import arjectMiddleware from "../middlewares/arjectMiddleware.js";
 
 router.post(
   "/signup",
@@ -12,7 +11,7 @@ router.post(
   body("email").notEmpty().withMessage("Email is required"),
   body("password").notEmpty().withMessage("Password is required"),
   handleErrorMessage,
-  authController.signup
+  authController.signup,
 );
 
 router.post(
@@ -20,16 +19,11 @@ router.post(
   body("email").notEmpty().withMessage("Email is required"),
   body("password").notEmpty().withMessage("Password is required"),
   handleErrorMessage,
-  authController.login
+  authController.login,
 );
 
 router.post("/logout", ProtectRoute, authController.logout);
 
 router.get("/checkAuth", ProtectRoute, authController.checkAuth);
 
-router.get("/arjectTest", (req, res) => {
-  res.status(200).json({ message: "Arcjet middleware passed!" });
-});
-
-// Export the router
 export default router;

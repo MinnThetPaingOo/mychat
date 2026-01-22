@@ -73,6 +73,7 @@ const AuthController = {
       return res.status(400).json({ error: error.message });
     }
   },
+
   login: async (req, res) => {
     try {
       let { email, password } = req.body;
@@ -111,6 +112,7 @@ const AuthController = {
       return res.status(400).json({ errors: { general: error.message } });
     }
   },
+
   logout: (req, res) => {
     try {
       res.cookie("jwt", "", {
@@ -125,6 +127,7 @@ const AuthController = {
       res.status(500).json({ message: "Internal Server Error" });
     }
   },
+
   checkAuth: (req, res) => {
     try {
       res.status(200).json(req.user);
