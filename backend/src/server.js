@@ -8,7 +8,6 @@ import messageRoute from "./routes/messageRoute.js";
 import contactRoute from "./routes/contactRoute.js";
 import reactionRoute from "./routes/reactionRoute.js";
 import { connectDB } from "./lib/db.js";
-import arjectMiddleware from "./middlewares/arjectMiddleware.js";
 import { app, server } from "./lib/socket.js";
 
 dotenv.config();
@@ -26,12 +25,11 @@ app.use(
   cors({
     origin: allowedOrigins,
     credentials: true,
-  })
+  }),
 );
-app.use(express.json({ limit: "10mb" })); // To parse JSON request bodies, increased limit
+app.use(express.json({ limit: "10mb" })); // To parse JSON request bodies
 app.use(cookieParser()); // To parse cookies
-app.use(express.urlencoded({ extended: true, limit: "10mb" })); // To parse URL-encoded request bodies, increased limit
-// app.use(arjectMiddleware);
+app.use(express.urlencoded({ extended: true, limit: "10mb" })); // To parse URL-encoded request bodies
 
 // Health check endpoint
 app.get("/", (req, res) => {
@@ -42,7 +40,14 @@ app.use("/api/user", userRoute);
 app.use("/api/message", messageRoute);
 app.use("/api/contact", contactRoute);
 app.use("/api/reaction", reactionRoute);
-server.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-  connectDB();
-});
+
+connectDB()
+  .then(() => {
+    server.listen(PORT, () => {
+      console.log(`Server is running on port ${PORT}`);
+    });
+  })
+  .catch((error) => {
+    console.error("Failed to connect to database:", error);
+    process.exit(1);
+  });
