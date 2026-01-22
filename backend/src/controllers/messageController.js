@@ -80,6 +80,7 @@ const messageController = {
       const receiverSocketId = getReceiverSocketId(receiverId);
       let messageStatus = "sent";
 
+      //check if receiver is online
       if (receiverSocketId) {
         if (isChatOpenWith(receiverId, senderId.toString())) {
           messageStatus = "seen";
@@ -87,7 +88,6 @@ const messageController = {
           messageStatus = "delivered";
         }
       }
-      console.log("Message status set to:", messageStatus);
 
       const newMessage = new Message({
         conversationId: conversation._id,
@@ -102,6 +102,7 @@ const messageController = {
       conversation.lastMessage = newMessage._id;
       await conversation.save();
 
+      //only emit to receiver if online
       if (receiverSocketId) {
         io.to(receiverSocketId).emit("newMessage", newMessage);
 
@@ -118,16 +119,14 @@ const messageController = {
           }
         }
       }
+
       return res.status(200).json({ message: newMessage });
     } catch (error) {
       console.error("Error sending message:", error);
       return res.status(400).json({ error: error.message });
     }
   },
-  receiveMessage: async (req, res) => {
-    // Implement actual receive logic here
-    res.send("Receive Message Route123");
-  },
+
   conversations: async (req, res) => {
     try {
       const myId = req.user._id;
@@ -146,6 +145,7 @@ const messageController = {
       return res.status(400).json({ error: error.messages });
     }
   },
+
   getLastMessage: async (req, res) => {
     try {
       const myId = req.user._id;
