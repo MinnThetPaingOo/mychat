@@ -8,6 +8,10 @@ const AuthController = {
     try {
       const { fullName, email, password } = req.body;
       const errors = {};
+      //full name validation, remove extra spaces
+      const trimmedFullName = fullName
+        ? fullName.trim().replace(/\s+/g, " ")
+        : "";
 
       // Email validation
       var mailformat = /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/;
@@ -18,6 +22,15 @@ const AuthController = {
         if (emailExits) {
           errors.email = "Email already exists";
         }
+      }
+
+      //auto create username from full name + random numbers
+      const userNameBase = fullName.replace(/\s+/g, "").toLowerCase();
+      let userName = userNameBase;
+      let suffix = 1;
+      while (await UserModel.findOne({ userName })) {
+        userName = `${userNameBase}${suffix}`;
+        suffix++;
       }
 
       // Password validation
@@ -41,8 +54,9 @@ const AuthController = {
 
       // Create new user
       const newUser = await UserModel.create({
-        fullName,
+        fullName: trimmedFullName,
         email,
+        userName,
         password: hashValue,
       });
       await newUser.save();
