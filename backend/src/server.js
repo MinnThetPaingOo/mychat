@@ -2,6 +2,7 @@ import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import profileRoute from "./routes/profileRoute.js";
 import authRoute from "./routes/authRoute.js";
 import userRoute from "./routes/userRoute.js";
 import messageRoute from "./routes/messageRoute.js";
@@ -35,6 +36,7 @@ app.use(express.urlencoded({ extended: true, limit: "10mb" })); // To parse URL-
 app.get("/", (req, res) => {
   res.json({ message: "API is running...", status: "healthy" });
 });
+app.use("/", profileRoute);
 app.use("/api/auth", authRoute);
 app.use("/api/user", userRoute);
 app.use("/api/message", messageRoute);
