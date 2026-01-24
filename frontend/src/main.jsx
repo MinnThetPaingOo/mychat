@@ -5,6 +5,7 @@ import App from "./App.jsx";
 import SignupPage from "./pages/SignupPage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import ChatPage from "./pages/ChatPage.jsx";
+import ProfilePage from "./pages/ProfilePage.jsx";
 
 import {
   createBrowserRouter,
@@ -16,22 +17,22 @@ import { useAuthStore } from "./store/useAuthStore.js";
 // Protected Route wrapper
 function ProtectedRoute({ children }) {
   const { authUser } = useAuthStore();
-  
+
   if (!authUser) {
     return <Navigate to="/login" replace />;
   }
-  
+
   return children;
 }
 
 // Auth Route wrapper (redirects to home if already logged in)
 function AuthRoute({ children }) {
   const { authUser } = useAuthStore();
-  
+
   if (authUser) {
     return <Navigate to="/" replace />;
   }
-  
+
   return children;
 }
 
@@ -66,6 +67,14 @@ const router = createBrowserRouter([
         ),
       },
       {
+        path: "/:userName",
+        element: (
+          <ProtectedRoute>
+            <ProfilePage />
+          </ProtectedRoute>
+        ),
+      },
+      {
         path: "*",
         element: (
           <ProtectedRoute>
@@ -80,5 +89,5 @@ const router = createBrowserRouter([
 createRoot(document.getElementById("root")).render(
   <StrictMode>
     <RouterProvider router={router} />
-  </StrictMode>
+  </StrictMode>,
 );
