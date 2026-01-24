@@ -6,6 +6,8 @@ import ProtectRoute from "../middlewares/protectRoute.js";
 router.put(
   "/updateProfilePicture",
   ProtectRoute,
-  userController.updateProfilePicture
+  userController.updateProfilePicture,
 );
+
+router.put("/changePassword", ProtectRoute, userController.changePassword);
 export default router;
