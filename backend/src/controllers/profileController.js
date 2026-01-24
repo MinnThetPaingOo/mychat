@@ -5,7 +5,7 @@ const profileController = {
       const { userName } = req.params;
       // get id, fullName, userName, email, profilePicture
       const user = await UserModel.findOne({ userName }).select(
-        "_id fullName userName email profilePicture",
+        "_id fullName userName email profilePicture isOnline bio",
       );
       if (!user) {
         throw new Error("User not found");

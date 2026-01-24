@@ -9,47 +9,57 @@ import {
   X,
   Loader,
 } from "lucide-react";
+import useUserStore from "../store/useUserStore";
 import { useAuthStore } from "../store/useAuthStore";
 import { useNavigate, useParams } from "react-router-dom";
 import BorderAnimatedContainer from "../components/borderAnimatedContainer";
 import { useChatStore } from "../store/useChatStore";
+import UploadingOverlay from "../components/UploadingOverlay";
 
 const ProfilePage = () => {
+  const { userProfile, isLoadingProfile, updateProfile, isUpdatingProfile } =
+    useUserStore();
   const { authUser } = useAuthStore();
   const { setSelectedUser } = useChatStore();
   const navigate = useNavigate();
   const { userName } = useParams();
-
-  // This is a mock user object. In a real app, you'd fetch this based on `userName`.
-  const profileUser = {
-    _id: "mock_user_id_" + userName,
-    fullName: "John Doe",
-    userName: userName,
-    email: "john.doe@example.com",
-    profilePicture: "/avatar.png",
-    bio: "Available",
-  };
-
-  // This check determines if you are viewing your own profile
-  const isOwnProfile = true;
-
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
-    fullName: profileUser.fullName,
-    userName: profileUser.userName,
-    bio: profileUser.bio,
+    fullName: "",
+    userName: "",
+    bio: "",
   });
   const fileInputRef = useRef(null);
 
+  useEffect(() => {
+    useUserStore.getState().fetchUserProfile(userName);
+    return () => {
+      useUserStore.getState().clearUserProfile();
+    };
+  }, [userName]);
+
+  // Update formData when userProfile changes
+  useEffect(() => {
+    if (userProfile) {
+      setFormData({
+        fullName: userProfile.fullName || "",
+        userName: userProfile.userName || "",
+        bio: userProfile.bio || "",
+      });
+    }
+  }, [userProfile]);
+
   const handleImageChange = (e) => {
     const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        console.log("New profile image selected:", e.target.result);
-      };
-      reader.readAsDataURL(file);
-    }
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+
+    reader.onloadend = async () => {
+      const base64Image = reader.result;
+      await updateProfile({ profilePicture: base64Image });
+    };
   };
 
   const handleInputChange = (e) => {
@@ -58,13 +68,29 @@ const ProfilePage = () => {
 
   const handleSave = () => {
     console.log("Saving data:", formData);
+    updateProfile(formData);
     setIsEditing(false);
   };
 
   const handleSendMessage = () => {
-    setSelectedUser(profileUser);
-    navigate("/chat");
+    if (userProfile) {
+      setSelectedUser(userProfile);
+      navigate("/chat");
+    }
   };
+
+  // Show loading state while fetching data (after all hooks are defined)
+  if (isLoadingProfile || !userProfile) {
+    return (
+      <div className="w-full h-full relative max-w-6xl">
+        <BorderAnimatedContainer>
+          <div className="w-full h-full text-white bg-gray-900 flex items-center justify-center"></div>
+        </BorderAnimatedContainer>
+      </div>
+    );
+  }
+
+  const isOwnProfile = authUser && userProfile._id === authUser._id;
 
   return (
     <div className="w-full h-full relative max-w-6xl">
@@ -74,7 +100,7 @@ const ProfilePage = () => {
             {/* Header */}
             <div className="flex items-center justify-between mb-8">
               <button
-                onClick={() => navigate(-1)} // Go back to the previous page
+                onClick={() => navigate(-1)}
                 className="p-2 rounded-full hover:bg-gray-800 transition-colors"
               >
                 <ChevronLeft size={24} />
@@ -88,7 +114,7 @@ const ProfilePage = () => {
                   <Pencil size={20} />
                 </button>
               ) : (
-                <div className="w-8 h-8" /> // Placeholder for alignment
+                <div className="w-8 h-8" />
               )}
             </div>
 
@@ -96,26 +122,34 @@ const ProfilePage = () => {
             <div className="flex flex-col items-center mb-8">
               <div className="relative">
                 <img
-                  src={profileUser.profilePicture}
+                  src={userProfile.profilePicture || "/avatar.png"}
                   alt="Profile"
                   className="w-32 h-32 rounded-full object-cover border-4 border-gray-700"
                 />
-                {isOwnProfile && (
+
+                {/* Beautiful loading overlay for profile picture */}
+                {isUpdatingProfile && <UploadingOverlay />}
+
+                {/* Hide pencil button when updating */}
+                {isOwnProfile && !isUpdatingProfile && (
                   <button
                     onClick={() => fileInputRef.current.click()}
-                    className="absolute bottom-0 right-0 bg-blue-500 p-2 rounded-full hover:bg-blue-600 transition-colors"
+                    className="absolute bottom-0 right-0 bg-blue-500 p-2 rounded-full hover:bg-blue-600 transition-colors shadow-lg"
                   >
                     <Pencil size={16} />
                   </button>
                 )}
+
                 <input
                   type="file"
                   ref={fileInputRef}
                   onChange={handleImageChange}
                   className="hidden"
                   accept="image/*"
+                  disabled={isUpdatingProfile}
                 />
               </div>
+
               <div className="mt-4 text-center">
                 {isEditing ? (
                   <input
@@ -126,9 +160,11 @@ const ProfilePage = () => {
                     className="bg-gray-800 text-white text-2xl font-bold rounded-md p-2 text-center mb-1"
                   />
                 ) : (
-                  <h2 className="text-2xl font-bold">{profileUser.fullName}</h2>
+                  <h2 className="text-2xl font-bold">{userProfile.fullName}</h2>
                 )}
-                <p className="text-gray-400">online</p>
+                <p className="text-gray-400">
+                  {userProfile.isOnline ? "Online" : "Offline"}
+                </p>
               </div>
             </div>
 
@@ -147,6 +183,8 @@ const ProfilePage = () => {
 
             {/* User Info Section */}
             <div className="bg-gray-900/50 rounded-lg p-6">
+              {/* Remove the loading overlay from here */}
+
               <div className="flex items-center">
                 <User size={20} className="text-gray-400 mr-4" />
                 <div className="w-full">
@@ -159,7 +197,7 @@ const ProfilePage = () => {
                       className="bg-gray-800 text-white text-sm rounded-md p-1"
                     />
                   ) : (
-                    <p>{profileUser.userName}</p>
+                    <p>{userProfile.userName}</p>
                   )}
                 </div>
               </div>
@@ -176,7 +214,9 @@ const ProfilePage = () => {
                       rows="3"
                     />
                   ) : (
-                    <p className="text-gray-300">{profileUser.bio}</p>
+                    <p className="text-gray-300">
+                      {userProfile.bio || "Add a few words about yourself"}
+                    </p>
                   )}
                 </div>
               </div>

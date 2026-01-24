@@ -14,10 +14,10 @@ const userController = {
         userId,
         { profilePicture: uploadResponse.secure_url },
         { new: true },
-      ).select("-password");
+      ).select("_id fullName userName email profilePicture isOnline bio");
       return res
         .status(200)
-        .json({ message: "Profile picture updated successfully" });
+        .json({ message: "Profile picture updated", user: updatedUser });
     } catch (error) {
       return res.status(400).json({ error: error.message });
     }

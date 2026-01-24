@@ -36,7 +36,7 @@ app.use(express.urlencoded({ extended: true, limit: "10mb" })); // To parse URL-
 app.get("/", (req, res) => {
   res.json({ message: "API is running...", status: "healthy" });
 });
-app.use("/", profileRoute);
+app.use("/api/profile", profileRoute);
 app.use("/api/auth", authRoute);
 app.use("/api/user", userRoute);
 app.use("/api/message", messageRoute);
