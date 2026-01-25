@@ -2,23 +2,28 @@ import { create } from "zustand";
 import { axiosInstance } from "../lib/axios";
 import toast from "react-hot-toast";
 import { useAuthStore } from "./useAuthStore";
-
+import { useNavigate } from "react-router-dom";
 const useUserStore = create((set) => ({
   userProfile: null,
-  isLoadingProfile: false,
+  isLoadingProfilePage: false,
   profileError: null,
-  isUpdatingProfile: false,
+  isUpdatingPP: false,
+
+  //check username availability
+  isAvailableUserName: false,
+  userNameSearchResult: "",
+  isCheckingUserName: false,
 
   fetchUserProfile: async (userName) => {
-    set({ isLoadingProfile: true, profileError: null });
+    set({ isLoadingProfilePage: true, profileError: null });
     try {
       const res = await axiosInstance.get(`/profile/${userName}`);
       const userProfile = res.data.user;
-      set({ userProfile, isLoadingProfile: false });
+      set({ userProfile, isLoadingProfilePage: false });
     } catch (error) {
       set({
         profileError: error.message,
-        isLoadingProfile: false,
+        isLoadingProfilePage: false,
         userProfile: null,
       });
       console.error("Error fetching user profile:", error);
@@ -29,7 +34,7 @@ const useUserStore = create((set) => ({
 
   updateProfile: async (data) => {
     try {
-      set({ isUpdatingProfile: true });
+      set({ isUpdatingPP: true });
       const response = await axiosInstance.put(
         "/user/updateProfilePicture",
         data,
@@ -40,7 +45,7 @@ const useUserStore = create((set) => ({
           ...state.userProfile,
           profilePicture: response.data.user.profilePicture,
         },
-        isUpdatingProfile: false,
+        isUpdatingPP: false,
       }));
       //update only profile picture in authStore
       useAuthStore.setState((state) => ({
@@ -53,7 +58,48 @@ const useUserStore = create((set) => ({
     } catch (error) {
       console.log("Error in update profile:", error);
       toast.error(error.response.data.message);
-      set({ isUpdatingProfile: false });
+      set({ isUpdatingPP: false });
+    }
+  },
+
+  checkUserNameAvailable: async (userName) => {
+    try {
+      set({ isCheckingUserName: true });
+      const response = await axiosInstance.get(
+        `/user/checkUserNameAvailable/${userName}`,
+      );
+      set({
+        isAvailableUserName: response.data.available,
+        userNameSearchResult: response.data.message,
+        isCheckingUserName: false,
+      });
+      return response.data.available;
+    } catch (error) {
+      console.log("Error checking username availability:", error);
+      return false;
+    }
+  },
+
+  updateInfo: async (data) => {
+    try {
+      const response = await axiosInstance.put(`/user/updateInfo`, data);
+      toast.success("User info updated successfully");
+
+      //update full name, username, bio in useAuthStore
+      useAuthStore.setState((state) => ({
+        authUser: {
+          ...state.authUser,
+          fullName: response.data.user.fullName,
+          userName: response.data.user.userName,
+          bio: response.data.user.bio,
+        },
+      }));
+
+      // Return the new username to be used for navigation in the component
+      return response.data.user.userName;
+    } catch (error) {
+      toast.error(error.response?.data?.error || "Error updating user info");
+      return null; // Return null on failure
     }
   },
 }));

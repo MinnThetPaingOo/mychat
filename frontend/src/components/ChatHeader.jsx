@@ -2,10 +2,13 @@ import { XIcon } from "lucide-react";
 import { useChatStore } from "../store/useChatStore";
 import { useEffect } from "react";
 import { useAuthStore } from "../store/useAuthStore";
-
+import useUserStore from "../store/useUserStore";
+import { useNavigate } from "react-router-dom";
 function ChatHeader() {
   const { selectedUser, setSelectedUser } = useChatStore();
   const { onlineUsers } = useAuthStore();
+  const { fetchUserProfile } = useUserStore();
+  const navigate = useNavigate();
   const isOnline = onlineUsers.includes(selectedUser._id);
 
   useEffect(() => {
@@ -19,6 +22,10 @@ function ChatHeader() {
     return () => window.removeEventListener("keydown", handleEscKey);
   }, [setSelectedUser]);
 
+  const handleProfileClick = async () => {
+    await fetchUserProfile(selectedUser.userName);
+    navigate(`/${selectedUser.userName}`);
+  };
   return (
     <div
       className="flex justify-between items-center bg-slate-800/50 border-b
@@ -26,7 +33,7 @@ function ChatHeader() {
     >
       <div className="flex items-center space-x-3">
         <div className={`avatar ${isOnline ? "avatar-online" : ""}`}>
-          <div className="w-12 rounded-full">
+          <div className="w-12 rounded-full" onClick={handleProfileClick}>
             <img
               src={selectedUser.profilePic || "/avatar.png"}
               alt={selectedUser.fullName}

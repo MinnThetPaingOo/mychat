@@ -10,4 +10,12 @@ router.put(
 );
 
 router.put("/changePassword", ProtectRoute, userController.changePassword);
+
+router.get(
+  "/checkUserNameAvailable/:userName",
+  ProtectRoute,
+  userController.checkUserNameAvailable,
+);
+
+router.put("/updateInfo", ProtectRoute, userController.updateInfo);
 export default router;

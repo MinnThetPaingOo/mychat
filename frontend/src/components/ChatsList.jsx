@@ -3,11 +3,15 @@ import { useChatStore } from "../store/useChatStore";
 import UsersLoadingSkeleton from "./UsersLoadingSkeleton";
 import NoChatsFound from "./NoChatsFound";
 import { useAuthStore } from "../store/useAuthStore";
+import useUserStore from "../store/useUserStore";
+import { useNavigate } from "react-router-dom";
 
 function ChatsList() {
   const { getMyChatPartners, chats, isUsersLoading, setSelectedUser } =
     useChatStore();
   const { onlineUsers } = useAuthStore();
+  const { fetchUserProfile } = useUserStore();
+  const navigate = useNavigate();
 
   useEffect(() => {
     getMyChatPartners();
@@ -15,7 +19,10 @@ function ChatsList() {
 
   if (isUsersLoading) return <UsersLoadingSkeleton />;
   if (chats.length === 0) return <NoChatsFound />;
-
+  const handleProfileClick = async (userName) => {
+    await fetchUserProfile(userName);
+    navigate(`/${userName}`);
+  };
   return (
     <>
       {chats.map((chat) => (
@@ -31,7 +38,10 @@ function ChatsList() {
                 onlineUsers.includes(chat._id) ? "avatar-online" : ""
               }`}
             >
-              <div className="size-12 rounded-full">
+              <div
+                className="size-12 rounded-full"
+                onClick={() => handleProfileClick(chat.userName)}
+              >
                 <img
                   src={chat.profilePic || "/avatar.png"}
                   alt={chat.fullName}

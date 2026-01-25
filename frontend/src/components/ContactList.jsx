@@ -2,16 +2,24 @@ import { useEffect } from "react";
 import { useChatStore } from "../store/useChatStore";
 import UsersLoadingSkeleton from "./UsersLoadingSkeleton";
 import { useAuthStore } from "../store/useAuthStore";
-
+import useUserStore from "../store/useUserStore";
+import { useNavigate } from "react-router-dom";
 function ContactList() {
   const { getAllContacts, allContacts, setSelectedUser, isUsersLoading } =
     useChatStore();
   const { onlineUsers } = useAuthStore();
+  const { fetchUserProfile } = useUserStore();
+  const navigate = useNavigate();
   useEffect(() => {
     getAllContacts();
   }, [getAllContacts]);
 
   if (isUsersLoading) return <UsersLoadingSkeleton />;
+
+  const handleProfileClick = async (userName) => {
+    await fetchUserProfile(userName);
+    navigate(`/${userName}`);
+  };
 
   return (
     <>
@@ -28,7 +36,10 @@ function ContactList() {
                 onlineUsers.includes(contact._id) ? "avatar-online" : ""
               }`}
             >
-              <div className="size-12 rounded-full">
+              <div
+                className="size-12 rounded-full"
+                onClick={() => handleProfileClick(contact.userName)}
+              >
                 <img src={contact.profilePic || "/avatar.png"} />
               </div>
             </div>

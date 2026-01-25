@@ -17,13 +17,22 @@ import { useChatStore } from "../store/useChatStore";
 import UploadingOverlay from "../components/UploadingOverlay";
 
 const ProfilePage = () => {
-  const { userProfile, isLoadingProfile, updateProfile, isUpdatingProfile } =
-    useUserStore();
+  const {
+    userProfile,
+    isLoadingProfilePage,
+    updateProfile,
+    isUpdatingPP,
+    checkUserNameAvailable,
+    isCheckingUserName,
+    isAvailableUserName,
+    userNameSearchResult,
+    updateInfo,
+  } = useUserStore();
   const { authUser } = useAuthStore();
   const { setSelectedUser } = useChatStore();
   const navigate = useNavigate();
   const { userName } = useParams();
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditingInfo, setIsEditingInfo] = useState(false);
   const [formData, setFormData] = useState({
     fullName: "",
     userName: "",
@@ -38,16 +47,10 @@ const ProfilePage = () => {
     };
   }, [userName]);
 
-  // Update formData when userProfile changes
+  // Check username availability when editing and username changes
   useEffect(() => {
-    if (userProfile) {
-      setFormData({
-        fullName: userProfile.fullName || "",
-        userName: userProfile.userName || "",
-        bio: userProfile.bio || "",
-      });
-    }
-  }, [userProfile]);
+    checkUserNameAvailable(userProfile?.userName);
+  }, [userProfile?.userName]);
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -63,13 +66,42 @@ const ProfilePage = () => {
   };
 
   const handleInputChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    let { name, value } = e.target;
+
+    // Prevent spaces in username
+    if (name === "userName") {
+      value = value.replace(/\s/g, "");
+    }
+
+    useUserStore.setState((state) => ({
+      userProfile: {
+        ...state.userProfile,
+        [name]: value,
+      },
+    }));
   };
 
-  const handleSave = () => {
-    console.log("Saving data:", formData);
-    updateProfile(formData);
-    setIsEditing(false);
+  const handleSave = async () => {
+    const { fullName, userName: newUserName, bio } = userProfile;
+    const data = {
+      fullName,
+      userName: newUserName,
+      bio,
+      isAvailableUserName,
+    };
+    const updatedUserName = await updateInfo(data);
+    setIsEditingInfo(false);
+
+    if (updatedUserName) {
+      navigate(`/${updatedUserName}`);
+    } else {
+      useUserStore.getState().fetchUserProfile(userName);
+    }
+  };
+
+  const handleCancel = () => {
+    setIsEditingInfo(false);
+    useUserStore.getState().fetchUserProfile(userName);
   };
 
   const handleSendMessage = () => {
@@ -79,8 +111,8 @@ const ProfilePage = () => {
     }
   };
 
-  // Show loading state while fetching data (after all hooks are defined)
-  if (isLoadingProfile || !userProfile) {
+  // Show loading state while fetching data
+  if (isLoadingProfilePage || !userProfile) {
     return (
       <div className="w-full h-full relative max-w-6xl">
         <BorderAnimatedContainer>
@@ -100,7 +132,7 @@ const ProfilePage = () => {
             {/* Header */}
             <div className="flex items-center justify-between mb-8">
               <button
-                onClick={() => navigate(-1)}
+                onClick={() => navigate("/")}
                 className="p-2 rounded-full hover:bg-gray-800 transition-colors"
               >
                 <ChevronLeft size={24} />
@@ -108,7 +140,7 @@ const ProfilePage = () => {
 
               {isOwnProfile ? (
                 <button
-                  onClick={() => setIsEditing(!isEditing)}
+                  onClick={() => setIsEditingInfo(!isEditingInfo)}
                   className="p-2 rounded-full hover:bg-gray-800 transition-colors"
                 >
                   <Pencil size={20} />
@@ -128,10 +160,10 @@ const ProfilePage = () => {
                 />
 
                 {/* Beautiful loading overlay for profile picture */}
-                {isUpdatingProfile && <UploadingOverlay />}
+                {isUpdatingPP && <UploadingOverlay />}
 
                 {/* Hide pencil button when updating */}
-                {isOwnProfile && !isUpdatingProfile && (
+                {isOwnProfile && !isUpdatingPP && (
                   <button
                     onClick={() => fileInputRef.current.click()}
                     className="absolute bottom-0 right-0 bg-blue-500 p-2 rounded-full hover:bg-blue-600 transition-colors shadow-lg"
@@ -146,16 +178,16 @@ const ProfilePage = () => {
                   onChange={handleImageChange}
                   className="hidden"
                   accept="image/*"
-                  disabled={isUpdatingProfile}
+                  disabled={isUpdatingPP}
                 />
               </div>
 
               <div className="mt-4 text-center">
-                {isEditing ? (
+                {isEditingInfo ? (
                   <input
                     type="text"
                     name="fullName"
-                    value={formData.fullName}
+                    value={userProfile.fullName}
                     onChange={handleInputChange}
                     className="bg-gray-800 text-white text-2xl font-bold rounded-md p-2 text-center mb-1"
                   />
@@ -183,32 +215,64 @@ const ProfilePage = () => {
 
             {/* User Info Section */}
             <div className="bg-gray-900/50 rounded-lg p-6">
-              {/* Remove the loading overlay from here */}
-
               <div className="flex items-center">
                 <User size={20} className="text-gray-400 mr-4" />
                 <div className="w-full">
-                  {isEditing ? (
-                    <input
-                      type="text"
-                      name="userName"
-                      value={formData.userName}
-                      onChange={handleInputChange}
-                      className="bg-gray-800 text-white text-sm rounded-md p-1"
-                    />
+                  {isEditingInfo ? (
+                    <div className="relative">
+                      <div className="flex items-center">
+                        <input
+                          type="text"
+                          name="userName"
+                          value={userProfile.userName}
+                          onChange={handleInputChange}
+                          className="bg-gray-800 text-white text-sm rounded-md p-1 pr-8 w-full"
+                          placeholder="Enter username"
+                        />
+                        <div className="absolute right-2 flex items-center">
+                          {isCheckingUserName ? (
+                            <Loader
+                              size={16}
+                              className="animate-spin text-gray-400"
+                            />
+                          ) : userNameSearchResult ? (
+                            isAvailableUserName ? (
+                              <Check size={16} className="text-green-500" />
+                            ) : (
+                              <X size={16} className="text-red-500" />
+                            )
+                          ) : null}
+                        </div>
+                      </div>
+                      {/* Username availability message */}
+                      {userNameSearchResult && (
+                        <p
+                          className={`text-xs mt-1 ${
+                            isCheckingUserName
+                              ? "text-gray-400"
+                              : isAvailableUserName
+                                ? "text-green-500"
+                                : "text-red-500"
+                          }`}
+                        >
+                          {userNameSearchResult}
+                        </p>
+                      )}
+                    </div>
                   ) : (
                     <p>{userProfile.userName}</p>
                   )}
                 </div>
               </div>
+
               <hr className="border-gray-700 my-4" />
               <div className="flex items-start">
                 <FileText size={20} className="text-gray-400 mr-4 mt-1" />
                 <div className="w-full">
-                  {isEditing ? (
+                  {isEditingInfo ? (
                     <textarea
                       name="bio"
-                      value={formData.bio}
+                      value={userProfile.bio}
                       onChange={handleInputChange}
                       className="bg-gray-800 text-white w-full rounded-md p-2"
                       rows="3"
@@ -222,10 +286,10 @@ const ProfilePage = () => {
               </div>
             </div>
 
-            {isEditing && (
+            {isEditingInfo && (
               <div className="mt-8 flex justify-end gap-4">
                 <button
-                  onClick={() => setIsEditing(false)}
+                  onClick={handleCancel}
                   className="bg-gray-700 py-2 px-4 rounded-md hover:bg-gray-600 transition-colors"
                 >
                   Cancel

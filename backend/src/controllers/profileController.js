@@ -3,7 +3,6 @@ const profileController = {
   getUserProfile: async (req, res) => {
     try {
       const { userName } = req.params;
-      // get id, fullName, userName, email, profilePicture
       const user = await UserModel.findOne({ userName }).select(
         "_id fullName userName email profilePicture isOnline bio",
       );

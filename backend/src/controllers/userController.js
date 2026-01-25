@@ -49,5 +49,54 @@ const userController = {
       return res.status(400).json({ error: error.message });
     }
   },
+
+  checkUserNameAvailable: async (req, res) => {
+    try {
+      const loginUserName = req.user.userName;
+      const { userName } = req.params;
+      const searchUser = await UserModel.findOne({ userName });
+
+      if (!searchUser) {
+        return res.status(200).json({ available: true, message: "Available" });
+      }
+
+      if (searchUser.userName === loginUserName) {
+        return res
+          .status(200)
+          .json({ available: true, message: "Your current username" });
+      }
+
+      // Username is taken by another user
+      return res.status(200).json({ available: false, message: "Unavailable" });
+    } catch (error) {
+      return res.status(400).json({ error: error.message });
+    }
+  },
+
+  updateInfo: async (req, res) => {
+    try {
+      const userId = req.user._id;
+      const { fullName, userName, bio, isAvailableUserName } = req.body;
+      if (!fullName) {
+        throw new Error("Full name is required");
+      }
+      if (!userName) {
+        throw new Error("Username is required");
+      }
+      if (!isAvailableUserName) {
+        throw new Error("Username is not available");
+      }
+      const updatedUser = await UserModel.findByIdAndUpdate(
+        userId,
+        { fullName, userName, bio },
+        { new: true },
+      ).select("_id fullName userName profilePicture bio");
+      return res
+        .status(200)
+        .json({ message: "Profile updated successfully", user: updatedUser });
+    } catch (error) {
+      return res.status(400).json({ error: error.message });
+    }
+  },
 };
 export default userController;
