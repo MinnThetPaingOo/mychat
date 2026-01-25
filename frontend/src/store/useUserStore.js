@@ -2,7 +2,6 @@ import { create } from "zustand";
 import { axiosInstance } from "../lib/axios";
 import toast from "react-hot-toast";
 import { useAuthStore } from "./useAuthStore";
-import { useNavigate } from "react-router-dom";
 const useUserStore = create((set) => ({
   userProfile: null,
   isLoadingProfilePage: false,
@@ -13,6 +12,9 @@ const useUserStore = create((set) => ({
   isAvailableUserName: false,
   userNameSearchResult: "",
   isCheckingUserName: false,
+
+  //edit profile functions
+  isSavingProfileInfo: false,
 
   fetchUserProfile: async (userName) => {
     set({ isLoadingProfilePage: true, profileError: null });
@@ -82,6 +84,7 @@ const useUserStore = create((set) => ({
 
   updateInfo: async (data) => {
     try {
+      set({ isSavingProfileInfo: true });
       const response = await axiosInstance.put(`/user/updateInfo`, data);
       toast.success("User info updated successfully");
 
@@ -94,11 +97,12 @@ const useUserStore = create((set) => ({
           bio: response.data.user.bio,
         },
       }));
-
+      set({ isSavingProfileInfo: false });
       // Return the new username to be used for navigation in the component
       return response.data.user.userName;
     } catch (error) {
       toast.error(error.response?.data?.error || "Error updating user info");
+      set({ isSavingProfileInfo: false });
       return null; // Return null on failure
     }
   },

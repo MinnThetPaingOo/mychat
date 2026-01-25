@@ -27,17 +27,13 @@ const ProfilePage = () => {
     isAvailableUserName,
     userNameSearchResult,
     updateInfo,
+    isSavingProfileInfo,
   } = useUserStore();
   const { authUser } = useAuthStore();
   const { setSelectedUser } = useChatStore();
   const navigate = useNavigate();
   const { userName } = useParams();
   const [isEditingInfo, setIsEditingInfo] = useState(false);
-  const [formData, setFormData] = useState({
-    fullName: "",
-    userName: "",
-    bio: "",
-  });
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -296,9 +292,19 @@ const ProfilePage = () => {
                 </button>
                 <button
                   onClick={handleSave}
-                  className="bg-blue-500 py-2 px-4 rounded-md hover:bg-blue-600 transition-colors"
+                  className={`bg-blue-500 py-2 px-4 rounded-md hover:bg-blue-600 transition-colors flex items-center justify-center gap-2 ${
+                    isSavingProfileInfo ? "opacity-70 cursor-not-allowed" : ""
+                  }`}
+                  disabled={isSavingProfileInfo}
                 >
-                  Save
+                  {isSavingProfileInfo ? (
+                    <>
+                      <Loader size={18} className="animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    "Save"
+                  )}
                 </button>
               </div>
             )}
