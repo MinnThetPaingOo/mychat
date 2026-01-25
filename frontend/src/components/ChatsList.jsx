@@ -28,11 +28,9 @@ function ChatsList() {
       {chats.map((chat) => (
         <div
           key={chat._id}
-          className="bg-cyan-500/10 p-4 rounded-lg cursor-pointer hover:bg-cyan-500/20 transition-colors"
-          onClick={() => setSelectedUser(chat)}
+          className="bg-cyan-500/10 p-2 rounded-lg cursor-pointer hover:bg-cyan-500/20 transition-colors"
         >
-          <div className="flex items-center gap-3">
-            {/* TODO: FIX THIS ONLINE STATUS AND MAKE IT WORK WITH SOCKET */}
+          <div className="flex items-center gap-2 flex-row ">
             <div
               className={`avatar ${
                 onlineUsers.includes(chat._id) ? "avatar-online" : ""
@@ -48,9 +46,11 @@ function ChatsList() {
                 />
               </div>
             </div>
-            <h4 className="text-slate-200 font-medium truncate">
-              {chat.fullName}
-            </h4>
+            <div onClick={() => setSelectedUser(chat)}>
+              <h4 className="text-slate-200 font-medium truncate w-55 md:w-28 lg:w-42 h-10">
+                {chat.fullName}
+              </h4>
+            </div>
           </div>
         </div>
       ))}
