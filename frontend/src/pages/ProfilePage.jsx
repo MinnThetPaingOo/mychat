@@ -103,7 +103,7 @@ const ProfilePage = () => {
   const handleSendMessage = () => {
     if (userProfile) {
       setSelectedUser(userProfile);
-      navigate("/chat");
+      navigate("/");
     }
   };
 
