@@ -7,6 +7,7 @@ const useUserStore = create((set) => ({
   isLoadingProfilePage: false,
   profileError: null,
   isUpdatingPP: false,
+  isUpdatingPassword: false,
 
   //check username availability
   isAvailableUserName: false,
@@ -15,6 +16,10 @@ const useUserStore = create((set) => ({
 
   //edit profile functions
   isSavingProfileInfo: false,
+  isEditingInfo: false,
+
+  setShowMenu: (showMenu) => set({ showMenu }),
+  setIsEditingInfo: (isEditingInfo) => set({ isEditingInfo }),
 
   fetchUserProfile: async (userName) => {
     set({ isLoadingProfilePage: true, profileError: null });
@@ -104,6 +109,23 @@ const useUserStore = create((set) => ({
       toast.error(error.response?.data?.error || "Error updating user info");
       set({ isSavingProfileInfo: false });
       return null; // Return null on failure
+    }
+  },
+
+  updatePassword: async (currentPassword, newPassword) => {
+    set({ isUpdatingPassword: true });
+    try {
+      const res = await axiosInstance.put("/auth/update-password", {
+        currentPassword,
+        newPassword,
+      });
+      toast.success("Password updated successfully");
+      return true;
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to update password");
+      return false;
+    } finally {
+      set({ isUpdatingPassword: false });
     }
   },
 }));

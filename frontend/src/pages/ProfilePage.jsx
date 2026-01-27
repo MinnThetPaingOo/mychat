@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import {
   ChevronLeft,
   FileText,
@@ -8,6 +8,9 @@ import {
   Check,
   X,
   Loader,
+  MoreVertical,
+  Edit,
+  Settings,
 } from "lucide-react";
 import useUserStore from "../store/useUserStore";
 import { useAuthStore } from "../store/useAuthStore";
@@ -28,18 +31,24 @@ const ProfilePage = () => {
     userNameSearchResult,
     updateInfo,
     isSavingProfileInfo,
+    showMenu,
+    isEditingInfo,
+    setShowMenu,
+    setIsEditingInfo,
+    fetchUserProfile,
+    clearUserProfile,
   } = useUserStore();
   const { authUser } = useAuthStore();
   const { setSelectedUser } = useChatStore();
   const navigate = useNavigate();
   const { userName } = useParams();
-  const [isEditingInfo, setIsEditingInfo] = useState(false);
   const fileInputRef = useRef(null);
+  const menuRef = useRef(null);
 
   useEffect(() => {
-    useUserStore.getState().fetchUserProfile(userName);
+    fetchUserProfile(userName);
     return () => {
-      useUserStore.getState().clearUserProfile();
+      clearUserProfile();
     };
   }, [userName]);
 
@@ -47,6 +56,18 @@ const ProfilePage = () => {
   useEffect(() => {
     checkUserNameAvailable(userProfile?.userName);
   }, [userProfile?.userName]);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setShowMenu(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [setShowMenu]);
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -91,13 +112,13 @@ const ProfilePage = () => {
     if (updatedUserName) {
       navigate(`/${updatedUserName}`);
     } else {
-      useUserStore.getState().fetchUserProfile(userName);
+      fetchUserProfile(userName);
     }
   };
 
   const handleCancel = () => {
     setIsEditingInfo(false);
-    useUserStore.getState().fetchUserProfile(userName);
+    fetchUserProfile(userName);
   };
 
   const handleSendMessage = () => {
@@ -105,6 +126,16 @@ const ProfilePage = () => {
       setSelectedUser(userProfile);
       navigate("/");
     }
+  };
+
+  const handleEditInfo = () => {
+    setIsEditingInfo(true);
+    setShowMenu(false);
+  };
+
+  const handleAccountSettings = () => {
+    setShowMenu(false);
+    navigate(`/${userName}/settings`);
   };
 
   // Show loading state while fetching data
@@ -134,13 +165,36 @@ const ProfilePage = () => {
                 <ChevronLeft size={24} />
               </button>
 
-              {isOwnProfile ? (
-                <button
-                  onClick={() => setIsEditingInfo(!isEditingInfo)}
-                  className="p-2 rounded-full hover:bg-gray-800 transition-colors"
-                >
-                  <Pencil size={20} />
-                </button>
+              {isOwnProfile && !isEditingInfo ? (
+                <div className="relative" ref={menuRef}>
+                  <button
+                    onClick={() => setShowMenu(!showMenu)}
+                    className="p-2 rounded-full hover:bg-gray-800 transition-colors"
+                  >
+                    <MoreVertical size={24} />
+                  </button>
+
+                  {/* Dropdown Menu */}
+                  {showMenu && (
+                    <div className="absolute right-0 mt-2 w-48 bg-gray-800 rounded-lg shadow-lg border border-gray-700 overflow-hidden z-10">
+                      <button
+                        onClick={handleEditInfo}
+                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-700 transition-colors text-left"
+                      >
+                        <Edit size={18} className="text-blue-400" />
+                        <span>Edit Info</span>
+                      </button>
+                      <div className="border-t border-gray-700"></div>
+                      <button
+                        onClick={handleAccountSettings}
+                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-700 transition-colors text-left"
+                      >
+                        <Settings size={18} className="text-gray-400" />
+                        <span>Account Settings</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
               ) : (
                 <div className="w-8 h-8" />
               )}
