@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { Eye, EyeOff, Lock, Mail, Loader, ChevronLeft } from "lucide-react";
-import useUserStore from "../store/useUserStore";
 import BorderAnimatedContainer from "../components/borderAnimatedContainer";
 import { useAuthStore } from "../store/useAuthStore";
+import useUserStore from "../store/useUserStore";
 import { useNavigate } from "react-router-dom";
 
 export default function Settings() {
@@ -126,7 +126,6 @@ export default function Settings() {
                       placeholder="Enter current password"
                       className="w-full pl-10 pr-12 py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors"
                       required
-                      disabled={isUpdatingPassword}
                     />
                     <button
                       type="button"
@@ -134,7 +133,6 @@ export default function Settings() {
                         setShowCurrentPassword(!showCurrentPassword)
                       }
                       className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-300 transition-colors"
-                      disabled={isUpdatingPassword}
                     >
                       {showCurrentPassword ? (
                         <EyeOff className="w-5 h-5" />
@@ -161,13 +159,11 @@ export default function Settings() {
                       className="w-full pl-10 pr-12 py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors"
                       required
                       minLength={6}
-                      disabled={isUpdatingPassword}
                     />
                     <button
                       type="button"
                       onClick={() => setShowNewPassword(!showNewPassword)}
                       className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-300 transition-colors"
-                      disabled={isUpdatingPassword}
                     >
                       {showNewPassword ? (
                         <EyeOff className="w-5 h-5" />
@@ -187,14 +183,12 @@ export default function Settings() {
                     type="button"
                     onClick={handleCancel}
                     className="flex-1 bg-gray-700 text-white py-3 rounded-lg hover:bg-gray-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                    disabled={isUpdatingPassword}
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     className="flex-1 bg-blue-500 text-white py-3 rounded-lg hover:bg-blue-600 transition-colors font-medium flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-                    disabled={isUpdatingPassword}
                   >
                     {isUpdatingPassword ? (
                       <>
