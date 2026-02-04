@@ -396,6 +396,36 @@ function ChatContainer() {
     );
   };
 
+  const getDateLabel = (dateString) => {
+    const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) return "";
+
+    const today = new Date();
+    const todayStart = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate(),
+    );
+    const dateStart = new Date(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate(),
+    );
+
+    const diffDays = Math.round(
+      (todayStart - dateStart) / (1000 * 60 * 60 * 24),
+    );
+
+    if (diffDays === 0) return "Today";
+    if (diffDays === 1) return "Yesterday";
+
+    return date.toLocaleDateString([], {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  };
+
   return (
     <div
       className="flex flex-col h-full w-full relative"
@@ -422,7 +452,25 @@ function ChatContainer() {
               </div>
             )}
 
-            {messages.map(renderMessage)}
+            {messages.map((msg, index) => {
+              const currentLabel = getDateLabel(msg.createdAt);
+              const prevLabel =
+                index > 0 ? getDateLabel(messages[index - 1].createdAt) : null;
+              const showDate = currentLabel && currentLabel !== prevLabel;
+
+              return (
+                <div key={msg._id} className="space-y-3">
+                  {showDate && (
+                    <div className="flex justify-center">
+                      <span className="text-xs uppercase tracking-wider font-semibold px-3 py-1 rounded-full bg-slate-800 text-slate-300 shadow-sm">
+                        {currentLabel}
+                      </span>
+                    </div>
+                  )}
+                  {renderMessage(msg)}
+                </div>
+              );
+            })}
 
             <div ref={messageEndRef} />
           </div>
