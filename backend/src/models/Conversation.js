@@ -16,7 +16,7 @@ const ConversationSchema = new Schema(
       trim: true,
     },
     groupAvatar: {
-      type: String, // URL to group avatar image
+      type: String,
     },
     createdBy: {
       type: Types.ObjectId,
@@ -42,7 +42,7 @@ const ConversationSchema = new Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 export default mongoose.model("Conversation", ConversationSchema);

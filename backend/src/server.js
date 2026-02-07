@@ -8,6 +8,7 @@ import userRoute from "./routes/userRoute.js";
 import messageRoute from "./routes/messageRoute.js";
 import contactRoute from "./routes/contactRoute.js";
 import reactionRoute from "./routes/reactionRoute.js";
+import myDayRoute from "./routes/myDayRoute.js";
 import { connectDB } from "./lib/db.js";
 import { app, server } from "./lib/socket.js";
 
@@ -42,6 +43,7 @@ app.use("/api/user", userRoute);
 app.use("/api/message", messageRoute);
 app.use("/api/contact", contactRoute);
 app.use("/api/reaction", reactionRoute);
+app.use("/api/myday", myDayRoute);
 
 connectDB()
   .then(() => {

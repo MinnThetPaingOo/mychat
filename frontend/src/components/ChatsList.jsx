@@ -19,10 +19,12 @@ function ChatsList() {
 
   if (isUsersLoading) return <UsersLoadingSkeleton />;
   if (chats.length === 0) return <NoChatsFound />;
+
   const handleProfileClick = async (userName) => {
     await fetchUserProfile(userName);
     navigate(`/${userName}`);
   };
+
   return (
     <>
       {chats.map((chat) => (

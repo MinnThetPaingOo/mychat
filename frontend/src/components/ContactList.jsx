@@ -4,12 +4,14 @@ import UsersLoadingSkeleton from "./UsersLoadingSkeleton";
 import { useAuthStore } from "../store/useAuthStore";
 import useUserStore from "../store/useUserStore";
 import { useNavigate } from "react-router-dom";
+
 function ContactList() {
   const { getAllContacts, allContacts, setSelectedUser, isUsersLoading } =
     useChatStore();
   const { onlineUsers } = useAuthStore();
   const { fetchUserProfile } = useUserStore();
   const navigate = useNavigate();
+
   useEffect(() => {
     getAllContacts();
   }, [getAllContacts]);
