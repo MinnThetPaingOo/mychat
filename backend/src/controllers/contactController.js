@@ -21,7 +21,7 @@ const contactController = {
       // by checking messages where they are either sender or receiver
       const messages = await Message.find({
         $or: [{ senderId: userId }, { receiverId: userId }],
-      });
+      }).sort({ createdAt: -1 });
 
       // extract unique user IDs from these messages
       const chattedUserIds = new Set();
@@ -38,7 +38,43 @@ const contactController = {
       const chattedContacts = await User.find({
         _id: { $in: Array.from(chattedUserIds) },
       }).select("-password");
-      return res.status(200).json({ chattedContacts: chattedContacts });
+
+      // For each contact, get last message and unread count
+      const contactsWithDetails = await Promise.all(
+        chattedContacts.map(async (contact) => {
+          // Get last message between user and this contact
+          const lastMessage = await Message.findOne({
+            $or: [
+              { senderId: userId, receiverId: contact._id },
+              { senderId: contact._id, receiverId: userId },
+            ],
+          })
+            .sort({ createdAt: -1 })
+            .select("text attachments senderId createdAt");
+
+          // Count unread messages (messages sent by contact to user that are not seen)
+          const unreadCount = await Message.countDocuments({
+            senderId: contact._id,
+            receiverId: userId,
+            status: { $ne: "seen" },
+          });
+
+          return {
+            ...contact.toObject(),
+            lastMessage,
+            unreadCount,
+          };
+        }),
+      );
+
+      // Sort by last message time (most recent first)
+      contactsWithDetails.sort((a, b) => {
+        const timeA = a.lastMessage?.createdAt || 0;
+        const timeB = b.lastMessage?.createdAt || 0;
+        return new Date(timeB) - new Date(timeA);
+      });
+
+      return res.status(200).json({ chattedContacts: contactsWithDetails });
     } catch (error) {
       return res.status(400).json({ error: error.message });
     }

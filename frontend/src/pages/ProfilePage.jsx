@@ -38,7 +38,7 @@ const ProfilePage = () => {
     fetchUserProfile,
     clearUserProfile,
   } = useUserStore();
-  const { authUser } = useAuthStore();
+  const { authUser, onlineUsers } = useAuthStore();
   const { setSelectedUser } = useChatStore();
   const navigate = useNavigate();
   const { userName } = useParams();
@@ -245,7 +245,7 @@ const ProfilePage = () => {
                   <h2 className="text-2xl font-bold">{userProfile.fullName}</h2>
                 )}
                 <p className="text-gray-400">
-                  {userProfile.isOnline ? "Online" : "Offline"}
+                  {onlineUsers.includes(userProfile._id) ? "Online" : "Offline"}
                 </p>
               </div>
             </div>

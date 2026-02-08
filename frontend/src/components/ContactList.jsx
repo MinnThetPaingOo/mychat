@@ -40,7 +40,7 @@ function ContactList() {
                 className="size-12 rounded-full"
                 onClick={() => handleProfileClick(contact.userName)}
               >
-                <img src={contact.profilePic || "/avatar.png"} />
+                <img src={contact.profilePicture || "/avatar.png"} />
               </div>
             </div>
             <div onClick={() => setSelectedUser(contact)}>

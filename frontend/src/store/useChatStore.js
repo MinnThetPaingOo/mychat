@@ -100,7 +100,7 @@ export const useChatStore = create((set, get) => ({
     set({ isMessagesLoading: true, currentPage: 1, hasMore: true });
     try {
       const res = await axiosInstance.get(
-        `/message/lastConversationsWith/${userId}?page=1`
+        `/message/lastConversationsWith/${userId}?page=1`,
       );
       const messages = res.data.lastMessages.reverse();
       const hasMore = messages.length === 8 && res.data.hasMore;
@@ -135,7 +135,7 @@ export const useChatStore = create((set, get) => ({
     try {
       const nextPage = currentPage + 1;
       const res = await axiosInstance.get(
-        `/message/lastConversationsWith/${userId}?page=${nextPage}`
+        `/message/lastConversationsWith/${userId}?page=${nextPage}`,
       );
 
       const olderMessages = res.data.lastMessages.reverse();
@@ -186,15 +186,53 @@ export const useChatStore = create((set, get) => ({
     try {
       const res = await axiosInstance.post(
         `/message/send/${selectedUser._id}`,
-        messageData
+        messageData,
       );
+
+      const newMessage = res.data.message;
 
       // Replace temp message with real one from server
       set((state) => ({
         messages: state.messages.map((msg) =>
-          msg._id === tempId ? res.data.message : msg
+          msg._id === tempId ? newMessage : msg,
         ),
       }));
+
+      // Update chats list for sender in real time
+      const { chats } = get();
+      const existingIndex = chats.findIndex(
+        (chat) => chat._id === selectedUser._id,
+      );
+
+      let updatedChats;
+      if (existingIndex !== -1) {
+        updatedChats = chats.map((chat) =>
+          chat._id === selectedUser._id
+            ? {
+                ...chat,
+                lastMessage: newMessage,
+                unreadCount: chat.unreadCount || 0,
+              }
+            : chat,
+        );
+      } else {
+        updatedChats = [
+          {
+            ...selectedUser,
+            lastMessage: newMessage,
+            unreadCount: 0,
+          },
+          ...chats,
+        ];
+      }
+
+      updatedChats.sort((a, b) => {
+        const timeA = a.lastMessage?.createdAt || 0;
+        const timeB = b.lastMessage?.createdAt || 0;
+        return new Date(timeB) - new Date(timeA);
+      });
+
+      set({ chats: updatedChats });
     } catch (error) {
       // Remove failed message
       set((state) => ({
@@ -212,14 +250,14 @@ export const useChatStore = create((set, get) => ({
    */
   markMessagesAsSeen: async (senderId) => {
     const { authUser, socket } = useAuthStore.getState();
-    const { messages } = get();
+    const { messages, chats } = get();
 
     // Find messages from sender that are not seen yet
     const unseenMessages = messages.filter(
       (msg) =>
         msg.senderId === senderId &&
         msg.receiverId === authUser._id &&
-        (msg.status === "sent" || msg.status === "delivered")
+        (msg.status === "sent" || msg.status === "delivered"),
     );
 
     if (unseenMessages.length === 0) return;
@@ -238,9 +276,15 @@ export const useChatStore = create((set, get) => ({
     // Update local state immediately
     set((state) => ({
       messages: state.messages.map((msg) =>
-        messageIds.includes(msg._id) ? { ...msg, status: "seen" } : msg
+        messageIds.includes(msg._id) ? { ...msg, status: "seen" } : msg,
       ),
     }));
+
+    // Reset unread count for this chat in chats list
+    const updatedChats = chats.map((chat) =>
+      chat._id === senderId ? { ...chat, unreadCount: 0 } : chat,
+    );
+    set({ chats: updatedChats });
   },
 
   // ========================================
@@ -256,6 +300,7 @@ export const useChatStore = create((set, get) => ({
    * - message_delivered: Updates message status when delivered to recipient
    * - messages_seen: Updates message status when recipient views them
    */
+  _messageHandler: null,
   subscribeToMessages: () => {
     const { selectedUser, isSoundEnabled } = get();
     if (!selectedUser) return;
@@ -263,27 +308,39 @@ export const useChatStore = create((set, get) => ({
     const socket = useAuthStore.getState().socket;
     if (!socket) return;
 
-    // Listen for new messages
-    socket.on("newMessage", (newMessage) => {
-      if (newMessage.senderId !== selectedUser._id) return;
+    // Remove previous handler if any
+    if (get()._messageHandler) {
+      socket.off("newMessage", get()._messageHandler);
+    }
+
+    // Handler only manages the active conversation messages + sound
+    const handler = (newMessage) => {
+      const currentSelectedUser = get().selectedUser;
+      if (!currentSelectedUser) return;
+
+      // Only add to messages if it's from the selected user
+      if (newMessage.senderId !== currentSelectedUser._id) return;
 
       const currentMessages = get().messages;
       set({ messages: [...currentMessages, newMessage] });
 
-      if (isSoundEnabled) {
+      if (get().isSoundEnabled) {
         const notificationSound = new Audio("/sounds/notification.mp3");
         notificationSound.currentTime = 0;
         notificationSound
           .play()
           .catch((e) => console.log("Audio play failed:", e));
       }
-    });
+    };
+
+    set({ _messageHandler: handler });
+    socket.on("newMessage", handler);
 
     // Listen for message_delivered event from server
     socket.on("message_delivered", ({ messageId }) => {
       set((state) => ({
         messages: state.messages.map((msg) =>
-          msg._id === messageId ? { ...msg, status: "delivered" } : msg
+          msg._id === messageId ? { ...msg, status: "delivered" } : msg,
         ),
       }));
     });
@@ -292,23 +349,97 @@ export const useChatStore = create((set, get) => ({
     socket.on("messages_seen", ({ messageIds }) => {
       set((state) => ({
         messages: state.messages.map((msg) =>
-          messageIds.includes(msg._id) ? { ...msg, status: "seen" } : msg
+          messageIds.includes(msg._id) ? { ...msg, status: "seen" } : msg,
         ),
       }));
     });
   },
 
   /**
-   * Removes all socket listeners for messages
-   * Called when closing a chat or unmounting chat component
-   * Prevents memory leaks and duplicate event handlers
+   * Removes socket listeners for active conversation only
+   * Does NOT remove the chat list listener
    */
   unsubscribeFromMessages: () => {
     const socket = useAuthStore.getState().socket;
     if (!socket) return;
 
-    socket.off("newMessage");
+    const handler = get()._messageHandler;
+    if (handler) {
+      socket.off("newMessage", handler);
+      set({ _messageHandler: null });
+    }
     socket.off("message_delivered");
     socket.off("messages_seen");
+  },
+
+  // ========================================
+  // CHAT LIST REAL-TIME LISTENERS
+  // Global listener for updating chats list even without selected chat
+  // ========================================
+
+  _chatListHandler: null,
+  subscribeToChatList: () => {
+    const socket = useAuthStore.getState().socket;
+    if (!socket) return;
+
+    // Remove previous handler if any
+    if (get()._chatListHandler) {
+      socket.off("newMessage", get()._chatListHandler);
+    }
+
+    const handler = (newMessage) => {
+      const { chats, selectedUser } = get();
+      const { authUser } = useAuthStore.getState();
+
+      const otherUserId =
+        newMessage.senderId === authUser._id
+          ? newMessage.receiverId
+          : newMessage.senderId;
+
+      let found = false;
+      const updatedChats = chats.map((chat) => {
+        if (chat._id === otherUserId) {
+          found = true;
+          return {
+            ...chat,
+            lastMessage: newMessage,
+            unreadCount:
+              newMessage.senderId !== authUser._id &&
+              selectedUser?._id !== otherUserId
+                ? (chat.unreadCount || 0) + 1
+                : chat.unreadCount || 0,
+          };
+        }
+        return chat;
+      });
+
+      // Sort by most recent message
+      updatedChats.sort((a, b) => {
+        const timeA = a.lastMessage?.createdAt || 0;
+        const timeB = b.lastMessage?.createdAt || 0;
+        return new Date(timeB) - new Date(timeA);
+      });
+
+      set({ chats: updatedChats });
+
+      // If new chat partner not in list, refetch
+      if (!found) {
+        get().getMyChatPartners();
+      }
+    };
+
+    set({ _chatListHandler: handler });
+    socket.on("newMessage", handler);
+  },
+
+  unsubscribeFromChatList: () => {
+    const socket = useAuthStore.getState().socket;
+    if (!socket) return;
+
+    const handler = get()._chatListHandler;
+    if (handler) {
+      socket.off("newMessage", handler);
+      set({ _chatListHandler: null });
+    }
   },
 }));

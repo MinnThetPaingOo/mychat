@@ -47,26 +47,31 @@ export const createMyDay = async (req, res) => {
 
     const myDay = await MyDay.create(myDayData);
 
-    // Emit socket event to notify contacts about new story
+    // Emit socket event to notify all online users about new story
     try {
-      const userContacts = await User.findById(userId).select("contacts");
-      const contactIds = userContacts.contacts || [];
-
-      // Notify all contacts about the new story
-      contactIds.forEach((contactId) => {
-        const contactSocketId = getReceiverSocketId(contactId.toString());
-        if (contactSocketId) {
-          io.to(contactSocketId).emit("new_story_created", {
-            user: {
-              _id: myDay.userId,
-              fullName: myDay.fullName,
-              userName: myDay.userName,
-              profilePicture: myDay.profilePicture,
-            },
-            story: myDay,
-          });
-        }
-      });
+      // Broadcast to all connected users except the creator
+      const creatorSocketId = getReceiverSocketId(userId.toString());
+      if (creatorSocketId) {
+        io.except(creatorSocketId).emit("new_story_created", {
+          user: {
+            _id: myDay.userId,
+            fullName: myDay.fullName,
+            userName: myDay.userName,
+            profilePicture: myDay.profilePicture,
+          },
+          story: myDay,
+        });
+      } else {
+        io.emit("new_story_created", {
+          user: {
+            _id: myDay.userId,
+            fullName: myDay.fullName,
+            userName: myDay.userName,
+            profilePicture: myDay.profilePicture,
+          },
+          story: myDay,
+        });
+      }
     } catch (socketError) {
       console.error("Error emitting socket event:", socketError);
     }
@@ -235,21 +240,20 @@ export const deleteMyDay = async (req, res) => {
         .json({ message: "Story not found or unauthorized" });
     }
 
-    // Emit socket event to notify contacts about deleted story
+    // Emit socket event to notify all online users about deleted story
     try {
-      const userContacts = await User.findById(userId).select("contacts");
-      const contactIds = userContacts.contacts || [];
-
-      // Notify all contacts about the deleted story
-      contactIds.forEach((contactId) => {
-        const contactSocketId = getReceiverSocketId(contactId.toString());
-        if (contactSocketId) {
-          io.to(contactSocketId).emit("story_deleted", {
-            storyId: myDay._id,
-            userId: myDay.userId,
-          });
-        }
-      });
+      const creatorSocketId = getReceiverSocketId(userId.toString());
+      if (creatorSocketId) {
+        io.except(creatorSocketId).emit("story_deleted", {
+          storyId: myDay._id,
+          userId: myDay.userId,
+        });
+      } else {
+        io.emit("story_deleted", {
+          storyId: myDay._id,
+          userId: myDay.userId,
+        });
+      }
     } catch (socketError) {
       console.error("Error emitting socket event:", socketError);
     }

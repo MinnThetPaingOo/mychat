@@ -35,7 +35,7 @@ function ChatHeader() {
         <div className={`avatar ${isOnline ? "avatar-online" : ""}`}>
           <div className="w-12 rounded-full" onClick={handleProfileClick}>
             <img
-              src={selectedUser.profilePic || "/avatar.png"}
+              src={selectedUser.profilePicture || "/avatar.png"}
               alt={selectedUser.fullName}
             />
           </div>

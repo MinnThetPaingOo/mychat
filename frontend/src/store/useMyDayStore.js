@@ -11,31 +11,46 @@ export const useMyDayStore = create((set, get) => ({
   isCreating: false,
   isViewing: false,
 
+  _storyCreatedHandler: null,
+  _storyDeletedHandler: null,
+  _storyViewedHandler: null,
+
   subscribeToStories: () => {
     const { socket } = useAuthStore.getState();
     if (!socket) return;
 
+    // Remove previous handlers if any
+    const prev = get();
+    if (prev._storyCreatedHandler)
+      socket.off("new_story_created", prev._storyCreatedHandler);
+    if (prev._storyDeletedHandler)
+      socket.off("story_deleted", prev._storyDeletedHandler);
+    if (prev._storyViewedHandler)
+      socket.off("story_viewed", prev._storyViewedHandler);
+
     // Listen for new stories from contacts
-    socket.on("new_story_created", ({ user, story }) => {
+    const onStoryCreated = ({ user, story }) => {
       const currentStories = get().contactsStories;
       const userIndex = currentStories.findIndex(
         (item) => item.user._id === user._id,
       );
 
+      let updatedStories;
       if (userIndex !== -1) {
-        // Add story to existing user
-        currentStories[userIndex].stories.unshift(story);
+        updatedStories = currentStories.map((item, i) =>
+          i === userIndex
+            ? { ...item, stories: [story, ...item.stories] }
+            : item,
+        );
       } else {
-        // Add new user with story
-        currentStories.unshift({ user, stories: [story] });
+        updatedStories = [{ user, stories: [story] }, ...currentStories];
       }
 
-      set({ contactsStories: [...currentStories] });
-      toast.success(`${user.fullName} added a new story`);
-    });
+      set({ contactsStories: updatedStories });
+    };
 
     // Listen for deleted stories
-    socket.on("story_deleted", ({ storyId, userId }) => {
+    const onStoryDeleted = ({ storyId }) => {
       const currentStories = get().contactsStories;
       const updatedStories = currentStories
         .map((item) => ({
@@ -45,10 +60,10 @@ export const useMyDayStore = create((set, get) => ({
         .filter((item) => item.stories.length > 0);
 
       set({ contactsStories: updatedStories });
-    });
+    };
 
     // Listen for story views (for your own stories)
-    socket.on("story_viewed", ({ storyId, viewer, viewedAt }) => {
+    const onStoryViewed = ({ storyId, viewer, viewedAt }) => {
       const currentStories = get().contactsStories;
       const userStories = get().userStories;
 
@@ -58,6 +73,8 @@ export const useMyDayStore = create((set, get) => ({
         stories: item.stories.map((story) => {
           if (story._id === storyId) {
             const views = story.views || [];
+            // Prevent duplicate
+            if (views.some((v) => v.userId === viewer._id)) return story;
             return {
               ...story,
               views: [...views, { userId: viewer._id, user: viewer, viewedAt }],
@@ -71,6 +88,7 @@ export const useMyDayStore = create((set, get) => ({
       const updatedUserStories = userStories.map((story) => {
         if (story._id === storyId) {
           const views = story.views || [];
+          if (views.some((v) => v.userId === viewer._id)) return story;
           return {
             ...story,
             views: [...views, { userId: viewer._id, user: viewer, viewedAt }],
@@ -83,16 +101,35 @@ export const useMyDayStore = create((set, get) => ({
         contactsStories: updatedContactsStories,
         userStories: updatedUserStories,
       });
+    };
+
+    set({
+      _storyCreatedHandler: onStoryCreated,
+      _storyDeletedHandler: onStoryDeleted,
+      _storyViewedHandler: onStoryViewed,
     });
+
+    socket.on("new_story_created", onStoryCreated);
+    socket.on("story_deleted", onStoryDeleted);
+    socket.on("story_viewed", onStoryViewed);
   },
 
   unsubscribeFromStories: () => {
     const { socket } = useAuthStore.getState();
     if (!socket) return;
 
-    socket.off("new_story_created");
-    socket.off("story_deleted");
-    socket.off("story_viewed");
+    const { _storyCreatedHandler, _storyDeletedHandler, _storyViewedHandler } =
+      get();
+    if (_storyCreatedHandler)
+      socket.off("new_story_created", _storyCreatedHandler);
+    if (_storyDeletedHandler) socket.off("story_deleted", _storyDeletedHandler);
+    if (_storyViewedHandler) socket.off("story_viewed", _storyViewedHandler);
+
+    set({
+      _storyCreatedHandler: null,
+      _storyDeletedHandler: null,
+      _storyViewedHandler: null,
+    });
   },
 
   fetchContactsStories: async () => {
@@ -153,7 +190,26 @@ export const useMyDayStore = create((set, get) => ({
 
   markAsViewed: async (myDayId) => {
     try {
+      const { authUser } = useAuthStore.getState();
       await axiosInstance.post(`/myday/${myDayId}/view`);
+
+      // Update the seen state locally in contactsStories so the ring updates
+      const currentStories = get().contactsStories;
+      const updatedStories = currentStories.map((item) => ({
+        ...item,
+        stories: item.stories.map((story) => {
+          if (story._id === myDayId) {
+            const views = story.views || [];
+            if (views.some((v) => v.userId === authUser._id)) return story;
+            return {
+              ...story,
+              views: [...views, { userId: authUser._id, viewedAt: new Date() }],
+            };
+          }
+          return story;
+        }),
+      }));
+      set({ contactsStories: updatedStories });
     } catch (error) {
       console.error("Failed to mark as viewed:", error);
     }
