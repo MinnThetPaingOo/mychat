@@ -1,6 +1,7 @@
 import MyDay from "../models/MyDay.js";
 import User from "../models/User.js";
 import claudinary from "../lib/claudinary.js";
+import { io, getReceiverSocketId } from "../lib/socket.js";
 
 // Create a new MyDay post
 export const createMyDay = async (req, res) => {
@@ -45,6 +46,30 @@ export const createMyDay = async (req, res) => {
     }
 
     const myDay = await MyDay.create(myDayData);
+
+    // Emit socket event to notify contacts about new story
+    try {
+      const userContacts = await User.findById(userId).select("contacts");
+      const contactIds = userContacts.contacts || [];
+
+      // Notify all contacts about the new story
+      contactIds.forEach((contactId) => {
+        const contactSocketId = getReceiverSocketId(contactId.toString());
+        if (contactSocketId) {
+          io.to(contactSocketId).emit("new_story_created", {
+            user: {
+              _id: myDay.userId,
+              fullName: myDay.fullName,
+              userName: myDay.userName,
+              profilePicture: myDay.profilePicture,
+            },
+            story: myDay,
+          });
+        }
+      });
+    } catch (socketError) {
+      console.error("Error emitting socket event:", socketError);
+    }
 
     res.status(201).json(myDay);
   } catch (error) {
@@ -164,6 +189,26 @@ export const viewMyDay = async (req, res) => {
     if (!alreadyViewed) {
       myDay.views.push({ userId: viewerId, viewedAt: new Date() });
       await myDay.save();
+
+      // Emit socket event to notify story owner about new view
+      if (myDay.userId.toString() !== viewerId.toString()) {
+        const ownerSocketId = getReceiverSocketId(myDay.userId.toString());
+        if (ownerSocketId) {
+          const viewer = await User.findById(viewerId).select(
+            "fullName userName profilePicture",
+          );
+          io.to(ownerSocketId).emit("story_viewed", {
+            storyId: myDay._id,
+            viewer: {
+              _id: viewerId,
+              fullName: viewer?.fullName,
+              userName: viewer?.userName,
+              profilePicture: viewer?.profilePicture,
+            },
+            viewedAt: new Date(),
+          });
+        }
+      }
     }
 
     res.status(200).json({ message: "Story viewed" });
@@ -188,6 +233,25 @@ export const deleteMyDay = async (req, res) => {
       return res
         .status(404)
         .json({ message: "Story not found or unauthorized" });
+    }
+
+    // Emit socket event to notify contacts about deleted story
+    try {
+      const userContacts = await User.findById(userId).select("contacts");
+      const contactIds = userContacts.contacts || [];
+
+      // Notify all contacts about the deleted story
+      contactIds.forEach((contactId) => {
+        const contactSocketId = getReceiverSocketId(contactId.toString());
+        if (contactSocketId) {
+          io.to(contactSocketId).emit("story_deleted", {
+            storyId: myDay._id,
+            userId: myDay.userId,
+          });
+        }
+      });
+    } catch (socketError) {
+      console.error("Error emitting socket event:", socketError);
     }
 
     // Delete from cloudinary if media exists

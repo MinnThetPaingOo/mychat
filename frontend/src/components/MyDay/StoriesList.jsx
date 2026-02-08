@@ -4,13 +4,23 @@ import { useMyDayStore } from "../../store/useMyDayStore";
 import { useAuthStore } from "../../store/useAuthStore";
 
 const StoriesList = ({ onStoryClick, onCreateClick }) => {
-  const { contactsStories, isLoadingStories, fetchContactsStories } =
-    useMyDayStore();
+  const {
+    contactsStories,
+    isLoadingStories,
+    fetchContactsStories,
+    subscribeToStories,
+    unsubscribeFromStories,
+  } = useMyDayStore();
   const { authUser } = useAuthStore();
 
   useEffect(() => {
     fetchContactsStories();
-  }, [fetchContactsStories]);
+    subscribeToStories();
+
+    return () => {
+      unsubscribeFromStories();
+    };
+  }, [fetchContactsStories, subscribeToStories, unsubscribeFromStories]);
 
   if (isLoadingStories) {
     return (

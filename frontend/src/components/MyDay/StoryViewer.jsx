@@ -183,7 +183,7 @@ const StoryViewer = ({ userId, onClose }) => {
       </div>
 
       {/* View Count - Bottom Left (like Facebook) */}
-      {isMyStory && viewCount > 0 && (
+      {isMyStory && (
         <button
           onClick={() => {
             setShowViewers(!showViewers);

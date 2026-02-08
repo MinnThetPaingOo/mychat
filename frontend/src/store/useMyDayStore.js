@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import toast from "react-hot-toast";
 import { axiosInstance } from "../lib/axios";
+import { useAuthStore } from "./useAuthStore";
 
 export const useMyDayStore = create((set, get) => ({
   contactsStories: [],
@@ -9,6 +10,90 @@ export const useMyDayStore = create((set, get) => ({
   isLoadingStories: false,
   isCreating: false,
   isViewing: false,
+
+  subscribeToStories: () => {
+    const { socket } = useAuthStore.getState();
+    if (!socket) return;
+
+    // Listen for new stories from contacts
+    socket.on("new_story_created", ({ user, story }) => {
+      const currentStories = get().contactsStories;
+      const userIndex = currentStories.findIndex(
+        (item) => item.user._id === user._id,
+      );
+
+      if (userIndex !== -1) {
+        // Add story to existing user
+        currentStories[userIndex].stories.unshift(story);
+      } else {
+        // Add new user with story
+        currentStories.unshift({ user, stories: [story] });
+      }
+
+      set({ contactsStories: [...currentStories] });
+      toast.success(`${user.fullName} added a new story`);
+    });
+
+    // Listen for deleted stories
+    socket.on("story_deleted", ({ storyId, userId }) => {
+      const currentStories = get().contactsStories;
+      const updatedStories = currentStories
+        .map((item) => ({
+          ...item,
+          stories: item.stories.filter((s) => s._id !== storyId),
+        }))
+        .filter((item) => item.stories.length > 0);
+
+      set({ contactsStories: updatedStories });
+    });
+
+    // Listen for story views (for your own stories)
+    socket.on("story_viewed", ({ storyId, viewer, viewedAt }) => {
+      const currentStories = get().contactsStories;
+      const userStories = get().userStories;
+
+      // Update in contactsStories
+      const updatedContactsStories = currentStories.map((item) => ({
+        ...item,
+        stories: item.stories.map((story) => {
+          if (story._id === storyId) {
+            const views = story.views || [];
+            return {
+              ...story,
+              views: [...views, { userId: viewer._id, user: viewer, viewedAt }],
+            };
+          }
+          return story;
+        }),
+      }));
+
+      // Update in userStories
+      const updatedUserStories = userStories.map((story) => {
+        if (story._id === storyId) {
+          const views = story.views || [];
+          return {
+            ...story,
+            views: [...views, { userId: viewer._id, user: viewer, viewedAt }],
+          };
+        }
+        return story;
+      });
+
+      set({
+        contactsStories: updatedContactsStories,
+        userStories: updatedUserStories,
+      });
+    });
+  },
+
+  unsubscribeFromStories: () => {
+    const { socket } = useAuthStore.getState();
+    if (!socket) return;
+
+    socket.off("new_story_created");
+    socket.off("story_deleted");
+    socket.off("story_viewed");
+  },
 
   fetchContactsStories: async () => {
     set({ isLoadingStories: true });
