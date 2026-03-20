@@ -23,14 +23,13 @@ export default defineConfig({
     },
     // Set chunk size warning limit
     chunkSizeWarningLimit: 1000,
-    // Enable minification with terser for better compression
-    minify: "terser",
-    terserOptions: {
-      compress: {
-        drop_console: true, // Remove console.log in production
-      },
-    },
+    // Use built-in esbuild minifier to avoid optional terser dependency on Vercel
+    minify: "esbuild",
     // Optimize CSS
     cssCodeSplit: true,
+  },
+  // Strip console/debugger in production builds
+  esbuild: {
+    drop: ["console", "debugger"],
   },
 });
