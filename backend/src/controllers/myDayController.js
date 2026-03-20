@@ -140,33 +140,82 @@ export const getContactsMyDay = async (req, res) => {
 export const getUserMyDay = async (req, res) => {
   try {
     const { userId } = req.params;
+    const now = new Date();
 
-    const stories = await MyDay.find({
-      userId,
-      expiresAt: { $gt: new Date() },
-    }).sort({ createdAt: 1 }); // Oldest first
-
-    // Populate viewer information
-    const storiesWithViewers = await Promise.all(
-      stories.map(async (story) => {
-        const storyObj = story.toObject();
-        if (storyObj.views && storyObj.views.length > 0) {
-          const viewsWithUserInfo = await Promise.all(
-            storyObj.views.map(async (view) => {
-              const viewer = await User.findById(view.userId).select(
-                "fullName userName profilePicture",
-              );
-              return {
-                ...view,
-                user: viewer,
-              };
-            }),
-          );
-          storyObj.views = viewsWithUserInfo;
-        }
-        return storyObj;
-      }),
-    );
+    // Optimized: Use aggregation pipeline to fetch stories with viewer details in ONE query
+    // This eliminates N+1 queries - previously made 1 + (number of views) queries
+    const storiesWithViewers = await MyDay.aggregate([
+      // Step 1: Match stories for this user that haven't expired
+      {
+        $match: {
+          userId: new mongoose.Types.ObjectId(userId),
+          expiresAt: { $gt: now },
+        },
+      },
+      // Step 2: Sort by creation date (oldest first)
+      {
+        $sort: { createdAt: 1 },
+      },
+      // Step 3: Lookup viewer details for all views at once
+      {
+        $lookup: {
+          from: "users",
+          let: { views: "$views" },
+          pipeline: [
+            {
+              // For each user in the views array, match and fetch details
+              $match: {
+                $expr: {
+                  $in: ["$_id", "$$views.userId"],
+                },
+              },
+            },
+            {
+              $project: {
+                _id: 1,
+                fullName: 1,
+                userName: 1,
+                profilePicture: 1,
+              },
+            },
+          ],
+          as: "viewerDetails",
+        },
+      },
+      // Step 4: Enrich views array with user details
+      {
+        $addFields: {
+          views: {
+            $map: {
+              input: "$views",
+              as: "view",
+              in: {
+                userId: "$$view.userId",
+                viewedAt: "$$view.viewedAt",
+                user: {
+                  $arrayElemAt: [
+                    {
+                      $filter: {
+                        input: "$viewerDetails",
+                        as: "viewer",
+                        cond: { $eq: ["$$viewer._id", "$$view.userId"] },
+                      },
+                    },
+                    0,
+                  ],
+                },
+              },
+            },
+          },
+        },
+      },
+      // Step 5: Remove temporary viewerDetails field
+      {
+        $project: {
+          viewerDetails: 0,
+        },
+      },
+    ]);
 
     res.status(200).json(storiesWithViewers);
   } catch (error) {

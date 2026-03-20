@@ -57,8 +57,13 @@ const myDaySchema = new mongoose.Schema(
   { timestamps: true },
 );
 
+// Indexes for optimal query performance
 // TTL index for auto-deletion after expiration
 myDaySchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+// Index for fetching user stories
+myDaySchema.index({ userId: 1, createdAt: -1 });
+// Index for checking non-expired stories
+myDaySchema.index({ userId: 1, expiresAt: 1 });
 
 const MyDay = mongoose.model("MyDay", myDaySchema);
 
