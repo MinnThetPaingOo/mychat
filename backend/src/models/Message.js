@@ -66,8 +66,14 @@ const messageSchema = new mongoose.Schema(
       },
     ],
   },
-  { timestamps: true }
+  { timestamps: true },
 );
+
+// Add indexes for optimal query performance
+messageSchema.index({ senderId: 1, receiverId: 1, createdAt: -1 });
+messageSchema.index({ receiverId: 1, status: 1 });
+messageSchema.index({ conversationId: 1, createdAt: -1 });
+messageSchema.index({ createdAt: -1 });
 
 const Message = mongoose.model("Message", messageSchema);
 

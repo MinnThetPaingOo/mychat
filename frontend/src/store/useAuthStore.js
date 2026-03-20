@@ -17,9 +17,27 @@ export const useAuthStore = create((set, get) => ({
 
   checkAuth: async () => {
     try {
-      const res = await axiosInstance.get("/auth/checkAuth");
-      set({ authUser: res.data });
-      get().connectSocket();
+      // Try to use the optimized initializeApp endpoint first
+      // This returns both user and chats in a single request
+      try {
+        const res = await axiosInstance.get("/auth/initializeApp");
+        set({ authUser: res.data.user });
+
+        // Set chats in useChatStore using dynamic import to avoid circular dependencies
+        const { useChatStore } = await import("./useChatStore");
+        useChatStore.setState({ chats: res.data.chats });
+
+        get().connectSocket();
+      } catch (error) {
+        // Fallback to old checkAuth endpoint if initializeApp doesn't exist
+        if (error.response?.status === 404) {
+          const res = await axiosInstance.get("/auth/checkAuth");
+          set({ authUser: res.data });
+          get().connectSocket();
+        } else {
+          throw error;
+        }
+      }
     } catch (error) {
       console.log("Error in authCheck:", error);
       set({ authUser: null });

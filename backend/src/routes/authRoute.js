@@ -26,4 +26,6 @@ router.post("/logout", ProtectRoute, authController.logout);
 
 router.get("/checkAuth", ProtectRoute, authController.checkAuth);
 
+router.get("/initializeApp", ProtectRoute, authController.initializeApp);
+
 export default router;

@@ -2,6 +2,7 @@ import UserModel from "../models/User.js";
 import bcrypt from "bcryptjs";
 import createToken from "../lib/createToken.js";
 import { sendWelcomeEmail } from "../emails/emailHandlers.js";
+import Message from "../models/Message.js";
 
 const AuthController = {
   signup: async (req, res) => {
@@ -147,6 +148,97 @@ const AuthController = {
       res.status(200).json(req.user);
     } catch (error) {
       console.log("Error in checkAuth controller", error.message);
+      res.status(500).json({ message: "Internal Server Error" });
+    }
+  },
+
+  // Combined endpoint for initial app load: returns user + chatted contacts in single request
+  initializeApp: async (req, res) => {
+    try {
+      const userId = req.user._id;
+
+      // Fetch chatted contacts with last message and unread count using aggregation
+      const chattedContacts = await Message.aggregate([
+        {
+          $match: {
+            $or: [{ senderId: userId }, { receiverId: userId }],
+          },
+        },
+        {
+          $sort: { createdAt: -1 },
+        },
+        {
+          $addFields: {
+            otherUserId: {
+              $cond: [
+                { $eq: ["$senderId", userId] },
+                "$receiverId",
+                "$senderId",
+              ],
+            },
+            isUnread: {
+              $and: [
+                { $eq: ["$receiverId", userId] },
+                { $ne: ["$status", "seen"] },
+              ],
+            },
+          },
+        },
+        {
+          $group: {
+            _id: "$otherUserId",
+            lastMessage: { $first: "$$ROOT" },
+            unreadCount: {
+              $sum: { $cond: ["$isUnread", 1, 0] },
+            },
+          },
+        },
+        {
+          $lookup: {
+            from: "users",
+            localField: "_id",
+            foreignField: "_id",
+            as: "userDetails",
+          },
+        },
+        {
+          $unwind: "$userDetails",
+        },
+        {
+          $project: {
+            _id: "$userDetails._id",
+            fullName: "$userDetails.fullName",
+            email: "$userDetails.email",
+            userName: "$userDetails.userName",
+            profilePicture: "$userDetails.profilePicture",
+            isOnline: "$userDetails.isOnline",
+            bio: "$userDetails.bio",
+            lastSeen: "$userDetails.lastSeen",
+            contacts: "$userDetails.contacts",
+            createdAt: "$userDetails.createdAt",
+            updatedAt: "$userDetails.updatedAt",
+            lastMessage: {
+              _id: "$lastMessage._id",
+              text: "$lastMessage.text",
+              attachments: "$lastMessage.attachments",
+              senderId: "$lastMessage.senderId",
+              createdAt: "$lastMessage.createdAt",
+            },
+            unreadCount: "$unreadCount",
+          },
+        },
+        {
+          $sort: { "lastMessage.createdAt": -1 },
+        },
+      ]);
+
+      // Return both user and chatted contacts
+      res.status(200).json({
+        user: req.user,
+        chats: chattedContacts,
+      });
+    } catch (error) {
+      console.log("Error in initializeApp controller", error.message);
       res.status(500).json({ message: "Internal Server Error" });
     }
   },

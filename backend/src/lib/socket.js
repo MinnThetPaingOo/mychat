@@ -74,24 +74,49 @@ io.on("connection", (socket) => {
   // When user comes online, send pending messages and mark as delivered
   socket.on("user_online", async () => {
     try {
-      // Find messages sent to this user that are still in "sent" status
+      // Find messages sent to this user that are still in "sent" status (limit to prevent overwhelming)
       const pendingMessages = await Message.find({
         receiverId: userId,
         status: "sent",
-      }).sort({ createdAt: 1 });
+      })
+        .sort({ createdAt: 1 })
+        .limit(100); // Limit to prevent processing too many messages at once
 
-      // Send each pending message, update status and notify sender
-      for (const message of pendingMessages) {
+      if (pendingMessages.length === 0) return;
+
+      // Get all message IDs for batch update
+      const messageIds = pendingMessages.map((m) => m._id);
+
+      // Batch update: mark all as delivered in ONE database query
+      await Message.updateMany(
+        { _id: { $in: messageIds } },
+        { status: "delivered" },
+      );
+
+      // Send all messages to client in batch
+      pendingMessages.forEach((message) => {
         socket.emit("newMessage", message);
-        await Message.findByIdAndUpdate(message._id, { status: "delivered" });
-        // Notify the sender if they're online
-        const senderSocketId = userSocketMap[message.senderId];
+      });
+
+      // Group messages by sender and notify each sender once
+      const senderGroups = new Map();
+      messageIds.forEach((messageId, index) => {
+        const senderId = pendingMessages[index].senderId;
+        if (!senderGroups.has(senderId)) {
+          senderGroups.set(senderId, []);
+        }
+        senderGroups.get(senderId).push(messageId);
+      });
+
+      // Send delivery notifications to senders (batch)
+      senderGroups.forEach((msgIds, senderId) => {
+        const senderSocketId = userSocketMap[senderId];
         if (senderSocketId) {
           io.to(senderSocketId).emit("message_delivered", {
-            messageId: message._id,
+            messageIds: msgIds,
           });
         }
-      }
+      });
     } catch (error) {
       console.error("Error sending pending messages:", error);
     }
@@ -103,7 +128,7 @@ io.on("connection", (socket) => {
       // Update all message statuses to "seen"
       await Message.updateMany(
         { _id: { $in: messageIds } },
-        { status: "seen" }
+        { status: "seen" },
       );
       // Notify the sender if they're online
       const senderSocketId = userSocketMap[senderId];

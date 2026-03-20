@@ -45,4 +45,9 @@ const ConversationSchema = new Schema(
   },
 );
 
+// Add indexes for optimal query performance
+ConversationSchema.index({ members: 1, type: 1 });
+ConversationSchema.index({ lastMessage: 1 });
+ConversationSchema.index({ createdAt: -1 });
+
 export default mongoose.model("Conversation", ConversationSchema);
