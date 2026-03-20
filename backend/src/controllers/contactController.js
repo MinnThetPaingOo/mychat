@@ -110,31 +110,49 @@ const contactController = {
     try {
       const userId = req.user._id;
 
-      // Get users the logged-in user has already chatted with
-      const messages = await Message.find({
-        $or: [{ senderId: userId }, { receiverId: userId }],
-      });
-
-      const chattedUserIds = new Set();
-      messages.forEach((msg) => {
-        if (msg.senderId.toString() !== userId.toString()) {
-          chattedUserIds.add(msg.senderId.toString());
-        }
-        if (msg.receiverId.toString() !== userId.toString()) {
-          chattedUserIds.add(msg.receiverId.toString());
-        }
-      });
-
-      // Fetch the last 5 users excluding logged-in user and already chatted users
-      const suggestedContacts = await User.find({
-        _id: {
-          $ne: userId,
-          $nin: Array.from(chattedUserIds),
+      // Optimized: Use aggregation pipeline to find users NOT chatted with (single query)
+      const suggestedContacts = await User.aggregate([
+        // Start with all users except self
+        { $match: { _id: { $ne: userId } } },
+        // Lookup messages to check if we've chatted
+        {
+          $lookup: {
+            from: "messages",
+            let: { contactId: "$_id" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $or: [
+                      {
+                        $and: [
+                          { $eq: ["$senderId", userId] },
+                          { $eq: ["$receiverId", "$$contactId"] },
+                        ],
+                      },
+                      {
+                        $and: [
+                          { $eq: ["$senderId", "$$contactId"] },
+                          { $eq: ["$receiverId", userId] },
+                        ],
+                      },
+                    ],
+                  },
+                },
+              },
+              { $limit: 1 }, // Just need to know if at least 1 message exists
+            ],
+            as: "chatHistory",
+          },
         },
-      })
-        .select("-password")
-        .sort({ createdAt: -1 })
-        .limit(5);
+        // Only keep users with NO chat history
+        { $match: { chatHistory: { $size: 0 } } },
+        // Sort by creation date and limit to 5
+        { $sort: { createdAt: -1 } },
+        { $limit: 5 },
+        // Remove sensitive data
+        { $project: { password: 0 } },
+      ]);
 
       return res.status(200).json({ contacts: suggestedContacts });
     } catch (error) {

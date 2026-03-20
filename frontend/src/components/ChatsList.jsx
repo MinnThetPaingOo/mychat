@@ -1,10 +1,72 @@
 import { useEffect } from "react";
+import React from "react";
 import { useChatStore } from "../store/useChatStore";
 import UsersLoadingSkeleton from "./UsersLoadingSkeleton";
 import NoChatsFound from "./NoChatsFound";
 import { useAuthStore } from "../store/useAuthStore";
 import useUserStore from "../store/useUserStore";
 import { useNavigate } from "react-router-dom";
+
+// Memoized chat item component - prevents unnecessary re-renders
+const ChatItem = React.memo(
+  ({ chat, isOnline, authUser, onSelect, onProfileClick }) => (
+    <div
+      key={chat._id}
+      className="bg-cyan-500/10 p-2 rounded-lg cursor-pointer hover:bg-cyan-500/20 transition-colors"
+    >
+      <div className="flex items-center gap-3 flex-row">
+        <div className={`avatar ${isOnline ? "avatar-online" : ""}`}>
+          <div
+            className="size-12 rounded-full"
+            onClick={() => onProfileClick(chat.userName)}
+          >
+            <img
+              src={chat.profilePicture || "/avatar.png"}
+              alt={chat.fullName}
+            />
+          </div>
+        </div>
+        <div className="flex-1 overflow-hidden" onClick={() => onSelect(chat)}>
+          <div className="flex items-center justify-between">
+            <h4 className="text-slate-200 font-medium truncate">
+              {chat.fullName}
+            </h4>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-slate-400 text-sm truncate flex-1">
+              {chat.lastMessage
+                ? chat.lastMessage.senderId === authUser?._id
+                  ? `You: ${
+                      chat.lastMessage.attachments?.length > 0
+                        ? "📎 Attachment"
+                        : chat.lastMessage.text || "No message"
+                    }`
+                  : chat.lastMessage.attachments?.length > 0
+                    ? "📎 Attachment"
+                    : chat.lastMessage.text || "No message"
+                : "No messages yet"}
+            </p>
+            {chat.unreadCount > 0 && (
+              <span className="bg-cyan-500 text-white text-xs font-bold rounded-full min-w-5 h-5 px-1 flex items-center justify-center shrink-0">
+                {chat.unreadCount > 9 ? "9+" : chat.unreadCount}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  ),
+  (prevProps, nextProps) => {
+    // Custom comparison: re-render only if actual chat data changed
+    return (
+      prevProps.chat._id === nextProps.chat._id &&
+      prevProps.chat.lastMessage?._id === nextProps.chat.lastMessage?._id &&
+      prevProps.chat.unreadCount === nextProps.chat.unreadCount &&
+      prevProps.isOnline === nextProps.isOnline
+    );
+  },
+);
+ChatItem.displayName = "ChatItem";
 
 function ChatsList() {
   const {
@@ -39,58 +101,14 @@ function ChatsList() {
   return (
     <>
       {chats.map((chat) => (
-        <div
+        <ChatItem
           key={chat._id}
-          className="bg-cyan-500/10 p-2 rounded-lg cursor-pointer hover:bg-cyan-500/20 transition-colors"
-        >
-          <div className="flex items-center gap-3 flex-row">
-            <div
-              className={`avatar ${
-                onlineUsers.includes(chat._id) ? "avatar-online" : ""
-              }`}
-            >
-              <div
-                className="size-12 rounded-full"
-                onClick={() => handleProfileClick(chat.userName)}
-              >
-                <img
-                  src={chat.profilePicture || "/avatar.png"}
-                  alt={chat.fullName}
-                />
-              </div>
-            </div>
-            <div
-              className="flex-1 overflow-hidden"
-              onClick={() => setSelectedUser(chat)}
-            >
-              <div className="flex items-center justify-between">
-                <h4 className="text-slate-200 font-medium truncate">
-                  {chat.fullName}
-                </h4>
-              </div>
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-slate-400 text-sm truncate flex-1">
-                  {chat.lastMessage
-                    ? chat.lastMessage.senderId === authUser?._id
-                      ? `You: ${
-                          chat.lastMessage.attachments?.length > 0
-                            ? "📎 Attachment"
-                            : chat.lastMessage.text || "No message"
-                        }`
-                      : chat.lastMessage.attachments?.length > 0
-                        ? "📎 Attachment"
-                        : chat.lastMessage.text || "No message"
-                    : "No messages yet"}
-                </p>
-                {chat.unreadCount > 0 && (
-                  <span className="bg-cyan-500 text-white text-xs font-bold rounded-full min-w-5 h-5 px-1 flex items-center justify-center shrink-0">
-                    {chat.unreadCount > 9 ? "9+" : chat.unreadCount}
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+          chat={chat}
+          isOnline={onlineUsers.includes(chat._id)}
+          authUser={authUser}
+          onSelect={setSelectedUser}
+          onProfileClick={handleProfileClick}
+        />
       ))}
     </>
   );

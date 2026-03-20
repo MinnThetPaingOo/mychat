@@ -154,6 +154,7 @@ const messageController = {
       const limit = 8;
       const skip = (page - 1) * limit;
 
+      // Optimized: Fetch limit+1 messages to determine hasMore without counting all messages
       const lastMessages = await Message.find({
         $or: [
           { senderId: myId, receiverId: otherId },
@@ -162,23 +163,19 @@ const messageController = {
       })
         .sort({ createdAt: -1 })
         .skip(skip)
-        .limit(limit);
-
-      const totalMessages = await Message.countDocuments({
-        $or: [
-          { senderId: myId, receiverId: otherId },
-          { senderId: otherId, receiverId: myId },
-        ],
-      });
+        .limit(limit + 1); // Get one extra to detect if more exist
 
       if (!lastMessages || lastMessages.length === 0) {
         return res.status(404).json({ error: "Messages not found" });
       }
 
+      // Determine if more messages exist without expensive countDocuments
+      const hasMore = lastMessages.length > limit;
+      const paginatedMessages = lastMessages.slice(0, limit);
+
       return res.status(200).json({
-        lastMessages,
-        hasMore: skip + lastMessages.length < totalMessages,
-        totalMessages,
+        lastMessages: paginatedMessages,
+        hasMore,
         currentPage: page,
       });
     } catch (error) {
