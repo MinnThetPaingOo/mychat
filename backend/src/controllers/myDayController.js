@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import MyDay from "../models/MyDay.js";
 import User from "../models/User.js";
 import claudinary from "../lib/claudinary.js";
@@ -145,7 +146,6 @@ export const getUserMyDay = async (req, res) => {
     // Optimized: Use aggregation pipeline to fetch stories with viewer details in ONE query
     // This eliminates N+1 queries - previously made 1 + (number of views) queries
     const storiesWithViewers = await MyDay.aggregate([
-      // Step 1: Match stories for this user that haven't expired
       {
         $match: {
           userId: new mongoose.Types.ObjectId(userId),
@@ -160,25 +160,8 @@ export const getUserMyDay = async (req, res) => {
       {
         $lookup: {
           from: "users",
-          let: { views: "$views" },
-          pipeline: [
-            {
-              // For each user in the views array, match and fetch details
-              $match: {
-                $expr: {
-                  $in: ["$_id", "$$views.userId"],
-                },
-              },
-            },
-            {
-              $project: {
-                _id: 1,
-                fullName: 1,
-                userName: 1,
-                profilePicture: 1,
-              },
-            },
-          ],
+          localField: "views.userId",
+          foreignField: "_id",
           as: "viewerDetails",
         },
       },
