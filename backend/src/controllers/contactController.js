@@ -5,10 +5,30 @@ const contactController = {
   getAllContacts: async (req, res) => {
     try {
       const loginUserId = req.user._id;
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const skip = (page - 1) * limit;
+
+      // ✅ Count total users (excluding self)
+      const total = await User.countDocuments({
+        _id: { $ne: loginUserId },
+      });
+
+      // ✅ Paginate results - only fetch 10 at a time
       const getAllContacts = await User.find({
         _id: { $ne: loginUserId },
-      }).select("-password");
-      return res.status(200).json({ contacts: getAllContacts });
+      })
+        .select("-password")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit);
+
+      return res.status(200).json({
+        contacts: getAllContacts,
+        total,
+        hasMore: skip + limit < total,
+        page,
+      });
     } catch (error) {
       return res.status(400).json({ error: error.message });
     }
@@ -109,52 +129,44 @@ const contactController = {
   suggestedContacts: async (req, res) => {
     try {
       const userId = req.user._id;
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const skip = (page - 1) * limit;
 
-      // Optimized: Use aggregation pipeline to find users NOT chatted with (single query)
-      const suggestedContacts = await User.aggregate([
-        // Start with all users except self
-        { $match: { _id: { $ne: userId } } },
-        // Lookup messages to check if we've chatted
-        {
-          $lookup: {
-            from: "messages",
-            let: { contactId: "$_id" },
-            pipeline: [
-              {
-                $match: {
-                  $expr: {
-                    $or: [
-                      {
-                        $and: [
-                          { $eq: ["$senderId", userId] },
-                          { $eq: ["$receiverId", "$$contactId"] },
-                        ],
-                      },
-                      {
-                        $and: [
-                          { $eq: ["$senderId", "$$contactId"] },
-                          { $eq: ["$receiverId", userId] },
-                        ],
-                      },
-                    ],
-                  },
-                },
-              },
-              { $limit: 1 }, // Just need to know if at least 1 message exists
-            ],
-            as: "chatHistory",
-          },
-        },
-        // Only keep users with NO chat history
-        { $match: { chatHistory: { $size: 0 } } },
-        // Sort by creation date and limit to 5
-        { $sort: { createdAt: -1 } },
-        { $limit: 5 },
-        // Remove sensitive data
-        { $project: { password: 0 } },
-      ]);
+      // ✅ OPTIMIZED: Use inverse lookup - find users we HAVEN'T messaged with
+      // Instead of: scan all users → check each for messages (O(N*M))
+      // We do: scan messages → get unique user IDs → exclude from all users (O(M + N))
 
-      return res.status(200).json({ contacts: suggestedContacts });
+      // Find all users we've already messaged with
+      const messaged = await Message.distinct("senderId", {
+        receiverId: userId,
+      });
+      const senders = await Message.distinct("receiverId", {
+        senderId: userId,
+      });
+
+      // Combine and add self
+      const messagesUserIds = [...new Set([...messaged, ...senders, userId])];
+
+      // Get suggested contacts (users we haven't messaged with)
+      const suggestedContacts = await User.find({
+        _id: { $nin: messagesUserIds },
+      })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .select("-password -contacts");
+
+      const total = await User.countDocuments({
+        _id: { $nin: messagesUserIds },
+      });
+
+      return res.status(200).json({
+        contacts: suggestedContacts,
+        total,
+        hasMore: skip + limit < total,
+        page,
+      });
     } catch (error) {
       return res.status(400).json({ error: error.message });
     }

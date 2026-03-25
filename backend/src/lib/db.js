@@ -2,8 +2,16 @@ import mongoose from "mongoose";
 
 export const connectDB = async () => {
   try {
+    // ✅ NEW: Added connection pooling configuration
     const conn = await mongoose.connect(process.env.MONGO_URI, {
       serverSelectionTimeoutMS: 5000,
+      maxPoolSize: 10, // Max 10 concurrent connections
+      minPoolSize: 2, // Keep 2 connections warm
+      maxIdleTimeMS: 45000, // Close idle connections after 45s
+      socketTimeoutMS: 45000, // Socket timeout
+      retryWrites: true,
+      w: "majority",
+      retryReads: true,
     });
     console.log("MongoDB connected:", conn.connection.host);
   } catch (error) {

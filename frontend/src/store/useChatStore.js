@@ -60,14 +60,29 @@ export const useChatStore = create((set, get) => ({
   // ========================================
 
   /**
-   * Fetches all available contacts from backend
+   * Fetches all available contacts from backend (paginated)
    * Used in "Contacts" tab to show all users you can chat with
+   * ✅ OPTIMIZATION: Uses pagination to avoid loading thousands of users at once
    */
-  getAllContacts: async () => {
-    set({ isUsersLoading: true });
+  getAllContacts: async (pageNum = 1) => {
+    // Only show loading on first page
+    if (pageNum === 1) {
+      set({ isUsersLoading: true });
+    }
+
     try {
-      const res = await axiosInstance.get("/contact/suggestedContacts");
-      set({ allContacts: res.data.contacts });
+      const res = await axiosInstance.get(
+        `/contact/getAllContacts?page=${pageNum}&limit=10`,
+      );
+
+      // ✅ Append new contacts if paginating, replace if first page
+      if (pageNum === 1) {
+        set({ allContacts: res.data.contacts });
+      } else {
+        set((state) => ({
+          allContacts: [...state.allContacts, ...res.data.contacts],
+        }));
+      }
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to load contacts");
     } finally {
@@ -78,8 +93,17 @@ export const useChatStore = create((set, get) => ({
   /**
    * Fetches users you've chatted with before
    * Used in "Chats" tab to show conversation history
+   * ✅ OPTIMIZATION: Skip if already loaded from initializeApp on startup
    */
   getMyChatPartners: async () => {
+    const { chats } = get();
+
+    // ✅ Skip API call if chats already populated from initializeApp
+    if (chats && chats.length > 0) {
+      set({ isUsersLoading: false });
+      return;
+    }
+
     set({ isUsersLoading: true });
     try {
       const res = await axiosInstance.get("/contact/chattedContacts");

@@ -157,11 +157,15 @@ const AuthController = {
     try {
       const userId = req.user._id;
 
+      // ✅ OPTIMIZATION: Only scan recent messages (last 30 days) to speed up aggregation
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
       // Fetch chatted contacts with last message and unread count using aggregation
       const chattedContacts = await Message.aggregate([
         {
           $match: {
             $or: [{ senderId: userId }, { receiverId: userId }],
+            createdAt: { $gte: thirtyDaysAgo }, // ✅ NEW: Filter old messages
           },
         },
         {

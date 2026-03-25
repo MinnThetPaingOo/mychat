@@ -1,6 +1,7 @@
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
+import compression from "compression";
 import cookieParser from "cookie-parser";
 import profileRoute from "./routes/profileRoute.js";
 import authRoute from "./routes/authRoute.js";
@@ -29,6 +30,10 @@ app.use(
     credentials: true,
   }),
 );
+
+// ✅ NEW: Add compression middleware (70-80% smaller responses)
+app.use(compression());
+
 app.use(express.json({ limit: "10mb" })); // To parse JSON request bodies
 app.use(cookieParser()); // To parse cookies
 app.use(express.urlencoded({ extended: true, limit: "10mb" })); // To parse URL-encoded request bodies

@@ -49,6 +49,8 @@ const userSchema = new mongoose.Schema(
 // Add indexes for optimal query performance
 userSchema.index({ email: 1 });
 userSchema.index({ userName: 1 });
+// ✅ NEW: Index for getAllContacts pagination sorting
+userSchema.index({ createdAt: -1 });
 
 const User = mongoose.model("User", userSchema);
 
